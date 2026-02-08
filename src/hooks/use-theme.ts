@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, createContext, useContext } from "rea
 
 export type Theme = "light" | "dark" | "system";
 
-const STORAGE_KEY = "cms_theme";
+const STORAGE_KEY = "theme";
 
 function getSystemTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";

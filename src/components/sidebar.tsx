@@ -209,6 +209,27 @@ export function Sidebar({ username, onLogout }: SidebarProps) {
         )}
       </nav>
 
+      {/* Settings */}
+      <div style={{
+        padding: "4px 0",
+        borderTop: "1px solid var(--color-border)",
+      }}>
+        <button
+          onClick={() => navigate("/settings/tokens")}
+          style={{
+            display: "block",
+            width: "100%",
+            textAlign: "left",
+            padding: "8px 20px",
+            fontSize: 13,
+            color: "var(--color-text-secondary)",
+            background: "transparent",
+          }}
+        >
+          API Tokens
+        </button>
+      </div>
+
       {/* User footer */}
       <div style={{
         padding: "12px 16px",

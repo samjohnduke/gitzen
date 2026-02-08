@@ -57,7 +57,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
         class: "tiptap-content",
         style: [
           "outline: none",
-          "font-family: var(--font-serif)",
+          "font-family: var(--font-sans)",
           "font-size: 17px",
           "line-height: 1.75",
           "color: var(--color-text)",

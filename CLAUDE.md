@@ -21,8 +21,12 @@ Custom Git-backed CMS for managing markdown content across multiple GitHub repos
 
 - `worker/index.ts` — Hono app entry point
 - `worker/routes/` — API route handlers
-- `worker/middleware/auth.ts` — Session verification
+- `worker/middleware/auth.ts` — Dual-mode auth (session + API token)
+- `worker/middleware/require-permission.ts` — Permission enforcement middleware
 - `worker/lib/github.ts` — GitHub API client
+- `worker/lib/crypto.ts` — AES-256-GCM encryption + HMAC-SHA256 signing
+- `worker/routes/tokens.ts` — API token CRUD
+- `worker/routes/device-auth.ts` — Device code auth flow for native apps
 - `shared/frontmatter.ts` — Parse/serialize frontmatter
 - `shared/types.ts` — Shared type definitions
 - `src/api/client.ts` — Typed fetch wrapper
@@ -36,9 +40,17 @@ npm run dev      # Vite dev server
 npm run build    # Build for production
 npm run preview  # Preview with wrangler
 npm run deploy   # Deploy to Cloudflare Workers
+npm test         # Run Vitest tests
+npm run test:watch  # Watch mode
 ```
 
 ## Environment
 
-- KV namespaces: `SESSIONS` (session storage), `CMS_DATA` (repo list, prefs)
-- Secrets: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+- KV namespaces: `SESSIONS` (session storage), `CMS_DATA` (user records, tokens, repo list, prefs)
+- Secrets:
+  - `GITHUB_APP_CLIENT_ID` — GitHub App client ID
+  - `GITHUB_APP_CLIENT_SECRET` — GitHub App client secret
+  - `GITHUB_CLIENT_ID` — Legacy OAuth App (migration period)
+  - `GITHUB_CLIENT_SECRET` — Legacy OAuth App (migration period)
+  - `ENCRYPTION_KEY` — AES-256-GCM key for encrypting GitHub tokens at rest
+  - `API_TOKEN_SECRET` — HMAC-SHA256 key for signing CMS API tokens

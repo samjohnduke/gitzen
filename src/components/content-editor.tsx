@@ -43,6 +43,7 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
   const [currentSha, setCurrentSha] = useState<string | undefined>();
   const [initialized, setInitialized] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
 
   // Draft key
   const draftKey = repo && collection && (slug || "new")
@@ -154,6 +155,23 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
     }
   };
 
+  // Cmd+. toggles zen mode, Escape exits
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+        e.preventDefault();
+        setZenMode((z) => !z);
+        return;
+      }
+      if (e.key === "Escape" && zenMode) {
+        e.preventDefault();
+        setZenMode(false);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [zenMode]);
+
   const title = String(frontmatter.title ?? "");
 
   if (!isNew && itemLoading) {
@@ -166,6 +184,117 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
         color: "var(--color-text-muted)",
       }}>
         Loading...
+      </div>
+    );
+  }
+
+  if (zenMode) {
+    return (
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "var(--color-bg)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "auto",
+      }}>
+        {/* Minimal top bar — fades in on hover */}
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 201,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 24px",
+            opacity: 0,
+            transition: "opacity 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <SaveIndicator saving={saving} lastSaved={lastSaved} error={saveError} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                padding: "6px 14px",
+                fontSize: 13,
+                fontWeight: 500,
+                background: "var(--color-accent)",
+                color: "white",
+                borderRadius: "var(--radius-md)",
+                opacity: saving ? 0.7 : 1,
+              }}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              onClick={() => setZenMode(false)}
+              title="Exit zen mode (Esc)"
+              style={{
+                padding: "6px 10px",
+                fontSize: 12,
+                color: "var(--color-text-muted)",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--color-border)",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Exit Zen
+              <kbd style={{
+                fontSize: 10,
+                padding: "1px 4px",
+                background: "var(--color-bg-muted)",
+                borderRadius: 3,
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-text-muted)",
+              }}>Esc</kbd>
+            </button>
+          </div>
+        </div>
+
+        {/* Centered writing area */}
+        <div style={{
+          flex: 1,
+          padding: "80px 32px 60px",
+          maxWidth: 680,
+          width: "100%",
+          margin: "0 auto",
+        }}>
+          {titleField && (
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setFrontmatter({ ...frontmatter, title: e.target.value })}
+              placeholder="Title"
+              style={{
+                width: "100%",
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                boxShadow: "none",
+                fontSize: 32,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.3,
+                padding: 0,
+                marginBottom: 32,
+                color: "var(--color-text)",
+              }}
+            />
+          )}
+          <TiptapEditor content={body} onChange={setBody} />
+        </div>
       </div>
     );
   }
@@ -198,6 +327,41 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
             <SaveIndicator saving={saving} lastSaved={lastSaved} error={saveError} />
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setZenMode(true)}
+              title="Zen mode — distraction-free writing (⌘ + ?)"
+              style={{
+                padding: "6px 12px",
+                fontSize: 13,
+                color: "var(--color-text-secondary)",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--color-border)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {/* Enso circle icon */}
+              <svg width="14" height="14" viewBox="0 0 100 100" fill="none">
+                <circle
+                  cx="50" cy="50" r="38"
+                  stroke="currentColor" strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray="220 40"
+                  transform="rotate(-90 50 50)"
+                />
+              </svg>
+              Zen
+              <kbd style={{
+                fontSize: 11,
+                padding: "1px 5px",
+                background: "var(--color-bg-muted)",
+                borderRadius: 3,
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-text-muted)",
+                marginLeft: 2,
+              }}>⌘ + ?</kbd>
+            </button>
             {!isNew && (
               <button
                 onClick={handleDelete}
@@ -255,7 +419,7 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
                 boxShadow: "none",
                 fontSize: 32,
                 fontWeight: 600,
-                fontFamily: "var(--font-serif)",
+                letterSpacing: "-0.02em",
                 lineHeight: 1.3,
                 padding: 0,
                 marginBottom: 24,

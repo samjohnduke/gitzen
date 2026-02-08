@@ -7,7 +7,9 @@
     "build": "vite build",
     "preview": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
@@ -32,6 +34,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.0.0",
+    "@cloudflare/vitest-pool-workers": "^0.12.10",
     "@cloudflare/workers-types": "^4.20250204.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.2.2",
@@ -39,8 +42,10 @@
     "@types/react-dom": "^19.0.3",
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^4.3.4",
+    "shiki": "^3.22.0",
     "typescript": "^5.7.3",
     "vite": "^6.1.0",
+    "vitest": "~3.2.0",
     "wrangler": "^3.105.0"
   }
 }

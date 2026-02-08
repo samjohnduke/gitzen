@@ -21,7 +21,7 @@ export function ContentList() {
   });
 
   return (
-    <div style={{ padding: "32px 40px", maxWidth: 900 }}>
+    <div style={{ padding: "32px 40px", width: "100%" }}>
       {/* Header */}
       <div style={{
         display: "flex",
@@ -32,7 +32,7 @@ export function ContentList() {
         <h1 style={{
           fontSize: 22,
           fontWeight: 600,
-          fontFamily: "var(--font-serif)",
+          letterSpacing: "-0.02em",
         }}>
           {label}
         </h1>
@@ -87,8 +87,8 @@ export function ContentList() {
 
       {/* Content table */}
       {!loading && sortedItems.length > 0 && (
-        <div style={{ borderRadius: "var(--radius-lg)", overflow: "hidden", border: "1px solid var(--color-border)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
                 <th style={thStyle}>Title</th>

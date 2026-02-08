@@ -1,25 +1,28 @@
 :root {
-  /* Warm color palette */
-  --color-bg: #faf8f5;
-  --color-bg-subtle: #f3f0eb;
-  --color-bg-muted: #eae6df;
+  /* Gitzen — rice paper & sumi ink */
+  --color-bg: #faf9f6;
+  --color-bg-subtle: #f5f3ef;
+  --color-bg-muted: #efeee9;
   --color-surface: #ffffff;
-  --color-border: #e2ddd5;
-  --color-border-subtle: #ece8e1;
-  --color-text: #2c2825;
-  --color-text-secondary: #6b6560;
-  --color-text-muted: #9a948d;
-  --color-accent: #b06e3d;
-  --color-accent-hover: #9a5f33;
-  --color-accent-subtle: #f5ece4;
-  --color-danger: #c4453a;
-  --color-danger-subtle: #fdf0ef;
-  --color-success: #3a8a5c;
-  --color-success-subtle: #edf7f1;
+  --color-border: #e5e2db;
+  --color-border-subtle: #ece9e2;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #5c5c5c;
+  --color-text-muted: #a3a3a3;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-serif: "Lora", Georgia, serif;
-  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+  /* Indigo accent (ai-iro) */
+  --color-accent: #4338ca;
+  --color-accent-hover: #3730a3;
+  --color-accent-subtle: #eef2ff;
+  --color-accent-text: #3730a3;
+
+  --color-danger: #b91c1c;
+  --color-danger-subtle: #fef2f2;
+  --color-success: #15803d;
+  --color-success-subtle: #f0fdf4;
+
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -35,42 +38,43 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg: #1a1816;
-    --color-bg-subtle: #222019;
-    --color-bg-muted: #2c2922;
-    --color-surface: #1f1d1a;
-    --color-border: #3a362f;
-    --color-border-subtle: #302d27;
-    --color-text: #e8e4df;
-    --color-text-secondary: #a8a29a;
-    --color-text-muted: #7a746d;
-    --color-accent: #d4925e;
-    --color-accent-hover: #e0a170;
-    --color-accent-subtle: #2d2418;
-    --color-danger: #e05a4f;
+    --color-bg: #0f0f14;
+    --color-bg-subtle: #16161e;
+    --color-bg-muted: #1a1a22;
+    --color-surface: #1a1a22;
+    --color-border: #27273a;
+    --color-border-subtle: #22222e;
+    --color-text: #e4e4e7;
+    --color-text-secondary: #a1a1aa;
+    --color-text-muted: #63636e;
+    --color-accent: #818cf8;
+    --color-accent-hover: #a5b4fc;
+    --color-accent-subtle: #1e1b4b;
+    --color-accent-text: #c7d2fe;
+    --color-danger: #f87171;
     --color-danger-subtle: #2d1c1a;
-    --color-success: #5ab87a;
+    --color-success: #4ade80;
     --color-success-subtle: #1a2d20;
-    --color-surface: #242220;
   }
 }
 
 [data-theme="dark"] {
-  --color-bg: #1a1816;
-  --color-bg-subtle: #222019;
-  --color-bg-muted: #2c2922;
-  --color-surface: #242220;
-  --color-border: #3a362f;
-  --color-border-subtle: #302d27;
-  --color-text: #e8e4df;
-  --color-text-secondary: #a8a29a;
-  --color-text-muted: #7a746d;
-  --color-accent: #d4925e;
-  --color-accent-hover: #e0a170;
-  --color-accent-subtle: #2d2418;
-  --color-danger: #e05a4f;
+  --color-bg: #0f0f14;
+  --color-bg-subtle: #16161e;
+  --color-bg-muted: #1a1a22;
+  --color-surface: #1a1a22;
+  --color-border: #27273a;
+  --color-border-subtle: #22222e;
+  --color-text: #e4e4e7;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #63636e;
+  --color-accent: #818cf8;
+  --color-accent-hover: #a5b4fc;
+  --color-accent-subtle: #1e1b4b;
+  --color-accent-text: #c7d2fe;
+  --color-danger: #f87171;
   --color-danger-subtle: #2d1c1a;
-  --color-success: #5ab87a;
+  --color-success: #4ade80;
   --color-success-subtle: #1a2d20;
 }
 

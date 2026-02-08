@@ -5,6 +5,7 @@ import { Layout } from "./components/layout";
 import { LoginPage } from "./components/login-page";
 import { ContentList } from "./components/content-list";
 import { ContentEditor } from "./components/content-editor";
+import { TokenManager } from "./components/token-manager";
 
 export function App() {
   const { authenticated, loading, username, logout } = useAuth();
@@ -34,10 +35,11 @@ export function App() {
 
   return (
     <ThemeContext.Provider value={themeState}>
-      <BrowserRouter>
+      <BrowserRouter basename="/app">
         <Routes>
           <Route element={<Layout username={username} onLogout={logout} />}>
             <Route path="/" element={<EmptyState />} />
+            <Route path="/settings/tokens" element={<TokenManager />} />
             <Route
               path="/:repo/:collection"
               element={<ContentList />}

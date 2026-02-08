@@ -1,22 +1,22 @@
 import { Hono } from "hono";
-import type { Env, SessionData } from "../types.js";
+import type { Env, SessionRecord, UserRecord } from "../types.js";
+import { encrypt } from "../lib/crypto.js";
 
 type AuthApp = { Bindings: Env };
 
 const auth = new Hono<AuthApp>();
 
 auth.get("/login", (c) => {
-  const clientId = c.env.GITHUB_CLIENT_ID;
+  const clientId = c.env.GITHUB_APP_CLIENT_ID;
   const callbackUrl = new URL("/auth/callback", c.req.url).toString();
   const state = crypto.randomUUID();
 
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", callbackUrl);
-  url.searchParams.set("scope", "repo");
   url.searchParams.set("state", state);
+  // GitHub App tokens don't use scopes — permissions are set on the App itself
 
-  // Store state for CSRF validation
   const isLocalhost = new URL(c.req.url).hostname === "localhost";
   const secure = isLocalhost ? "" : " Secure;";
   const response = c.redirect(url.toString());
@@ -44,7 +44,7 @@ auth.get("/callback", async (c) => {
     return c.text("Invalid state parameter", 400);
   }
 
-  // Exchange code for token
+  // Exchange code for token (GitHub App returns refresh_token + expires_in)
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
@@ -52,15 +52,18 @@ auth.get("/callback", async (c) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      client_id: c.env.GITHUB_CLIENT_ID,
-      client_secret: c.env.GITHUB_CLIENT_SECRET,
+      client_id: c.env.GITHUB_APP_CLIENT_ID,
+      client_secret: c.env.GITHUB_APP_CLIENT_SECRET,
       code,
     }),
   });
 
   const tokenData = (await tokenRes.json()) as {
     access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
     error?: string;
+    error_description?: string;
   };
 
   if (!tokenData.access_token) {
@@ -69,7 +72,7 @@ auth.get("/callback", async (c) => {
       {
         error: "Failed to get access token",
         github_error: tokenData.error,
-        github_error_description: (tokenData as Record<string, unknown>).error_description,
+        github_error_description: tokenData.error_description,
       },
       400
     );
@@ -87,29 +90,64 @@ auth.get("/callback", async (c) => {
     return c.text("Failed to verify GitHub user", 400);
   }
 
-  const user = (await userRes.json()) as { login: string };
+  const user = (await userRes.json()) as { id: number; login: string };
+  const userId = String(user.id);
 
-  // Create session
-  const sessionId = crypto.randomUUID();
-  const session: SessionData = {
-    githubToken: tokenData.access_token,
+  // Create or update UserRecord with encrypted tokens
+  const encryptedGithubToken = await encrypt(
+    tokenData.access_token,
+    c.env.ENCRYPTION_KEY
+  );
+
+  const encryptedRefreshToken = tokenData.refresh_token
+    ? await encrypt(tokenData.refresh_token, c.env.ENCRYPTION_KEY)
+    : null;
+
+  const tokenExpiresAt = tokenData.expires_in
+    ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+    : null;
+
+  const existing = await c.env.CMS_DATA.get<UserRecord>(
+    `user:${userId}`,
+    "json"
+  );
+
+  const userRecord: UserRecord = {
+    githubUserId: userId,
     githubUsername: user.login,
+    encryptedGithubToken,
+    encryptedRefreshToken,
+    tokenExpiresAt,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await c.env.CMS_DATA.put(`user:${userId}`, JSON.stringify(userRecord));
+
+  // Create session (references user, no plaintext token)
+  const sessionId = crypto.randomUUID();
+  const expiresAt = new Date(
+    Date.now() + 30 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const session: SessionRecord = {
+    userId,
     createdAt: new Date().toISOString(),
+    expiresAt,
   };
 
   await c.env.SESSIONS.put(sessionId, JSON.stringify(session), {
-    expirationTtl: 60 * 60 * 24 * 30, // 30 days
+    expirationTtl: 60 * 60 * 24 * 30,
   });
 
   const isLocal = new URL(c.req.url).hostname === "localhost";
   const sec = isLocal ? "" : " Secure;";
   const headers = new Headers();
-  headers.set("Location", "/");
+  headers.set("Location", "/app");
   headers.set(
     "Set-Cookie",
     `cms_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax;${sec} Max-Age=${60 * 60 * 24 * 30}`
   );
-  // Clear oauth state cookie
   headers.append(
     "Set-Cookie",
     `oauth_state=; Path=/; HttpOnly; SameSite=Lax;${sec} Max-Age=0`

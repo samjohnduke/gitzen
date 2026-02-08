@@ -85,6 +85,24 @@ export const api = {
       `/repos/${encodeURIComponent(repo)}/content/${collection}/${slug}?sha=${sha}`,
       { method: "DELETE" }
     ),
+
+  // API Tokens
+  listTokens: () =>
+    request<import("@shared/types").ApiTokenSummary[]>("/tokens"),
+
+  createToken: (data: {
+    name: string;
+    repos: string[];
+    permissions: import("@shared/types").Permission[];
+    expiresIn?: number | null;
+  }) =>
+    request<import("@shared/types").ApiTokenCreated>("/tokens", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  revokeToken: (tokenId: string) =>
+    request<{ ok: boolean }>(`/tokens/${tokenId}`, { method: "DELETE" }),
 };
 
 export { ApiError };

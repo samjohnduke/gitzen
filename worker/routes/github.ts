@@ -1,17 +1,17 @@
 import { Hono } from "hono";
-import type { Env } from "../types.js";
+import type { Env, AuthContext } from "../types.js";
 import { GitHubClient } from "../lib/github.js";
 
 type GithubApp = {
   Bindings: Env;
-  Variables: { githubToken: string; githubUsername: string };
+  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
 };
 
 const github = new Hono<GithubApp>();
 
 // List all repos the authenticated user has access to
 github.get("/repos", async (c) => {
-  const client = new GitHubClient(c.var.githubToken);
+  const client = new GitHubClient(c.var.auth.githubToken);
   const repos = await client.listUserRepos();
   return c.json(
     repos.map((r) => ({

@@ -1,11 +1,12 @@
 import { Hono } from "hono";
-import type { Env } from "../types.js";
+import type { Env, AuthContext } from "../types.js";
 import type { RepoConnection } from "../../shared/types.js";
 import { GitHubClient } from "../lib/github.js";
+import { requirePermission } from "../middleware/require-permission.js";
 
 type ReposApp = {
   Bindings: Env;
-  Variables: { githubToken: string; githubUsername: string };
+  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
 };
 
 const repos = new Hono<ReposApp>();
@@ -16,8 +17,16 @@ async function getRepos(kv: KVNamespace): Promise<RepoConnection[]> {
   return (await kv.get<RepoConnection[]>(REPOS_KEY, "json")) ?? [];
 }
 
-repos.get("/", async (c) => {
+repos.get("/", requirePermission("repos:read"), async (c) => {
   const repoList = await getRepos(c.env.CMS_DATA);
+  const { auth } = c.var;
+
+  // API tokens only see repos within their scope
+  if (auth.authMethod === "api-token" && auth.tokenScope && !auth.tokenScope.repos.includes("*")) {
+    const allowed = new Set(auth.tokenScope.repos);
+    return c.json(repoList.filter((r) => allowed.has(r.fullName)));
+  }
+
   return c.json(repoList);
 });
 
@@ -28,8 +37,7 @@ repos.post("/", async (c) => {
     return c.json({ error: "Invalid repo format. Use owner/repo-name" }, 400);
   }
 
-  // Validate cms.config.json exists
-  const github = new GitHubClient(c.var.githubToken);
+  const github = new GitHubClient(c.var.auth.githubToken);
   try {
     await github.getFile(fullName, "cms.config.json");
   } catch {

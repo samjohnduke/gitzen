@@ -6,13 +6,18 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "none",
+    "html_handling": "none"
   },
   "kv_namespaces": [
     { "binding": "SESSIONS", "id": "56d4300673e14bb7b4a7f116df9ad22a" },
     { "binding": "CMS_DATA", "id": "3aa29c73af534dde9b07f02a83166502" }
   ]
   // Secrets (set via `wrangler secret put`):
-  // - GITHUB_CLIENT_ID
-  // - GITHUB_CLIENT_SECRET
+  // - GITHUB_APP_CLIENT_ID      (GitHub App client ID)
+  // - GITHUB_APP_CLIENT_SECRET  (GitHub App client secret)
+  // - GITHUB_CLIENT_ID          (legacy OAuth App, kept during migration)
+  // - GITHUB_CLIENT_SECRET      (legacy OAuth App, kept during migration)
+  // - ENCRYPTION_KEY            (AES-256-GCM key for encrypting GitHub tokens)
+  // - API_TOKEN_SECRET          (HMAC-SHA256 key for signing CMS API tokens)
 }
