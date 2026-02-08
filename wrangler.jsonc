@@ -1,0 +1,18 @@
+{
+  "name": "samduke-cms",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "kv_namespaces": [
+    { "binding": "SESSIONS", "id": "56d4300673e14bb7b4a7f116df9ad22a" },
+    { "binding": "CMS_DATA", "id": "3aa29c73af534dde9b07f02a83166502" }
+  ]
+  // Secrets (set via `wrangler secret put`):
+  // - GITHUB_CLIENT_ID
+  // - GITHUB_CLIENT_SECRET
+}

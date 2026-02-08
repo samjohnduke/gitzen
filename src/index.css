@@ -1,0 +1,162 @@
+:root {
+  /* Warm color palette */
+  --color-bg: #faf8f5;
+  --color-bg-subtle: #f3f0eb;
+  --color-bg-muted: #eae6df;
+  --color-surface: #ffffff;
+  --color-border: #e2ddd5;
+  --color-border-subtle: #ece8e1;
+  --color-text: #2c2825;
+  --color-text-secondary: #6b6560;
+  --color-text-muted: #9a948d;
+  --color-accent: #b06e3d;
+  --color-accent-hover: #9a5f33;
+  --color-accent-subtle: #f5ece4;
+  --color-danger: #c4453a;
+  --color-danger-subtle: #fdf0ef;
+  --color-success: #3a8a5c;
+  --color-success-subtle: #edf7f1;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: "Lora", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  --sidebar-width: 260px;
+  --metadata-width: 320px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #1a1816;
+    --color-bg-subtle: #222019;
+    --color-bg-muted: #2c2922;
+    --color-surface: #1f1d1a;
+    --color-border: #3a362f;
+    --color-border-subtle: #302d27;
+    --color-text: #e8e4df;
+    --color-text-secondary: #a8a29a;
+    --color-text-muted: #7a746d;
+    --color-accent: #d4925e;
+    --color-accent-hover: #e0a170;
+    --color-accent-subtle: #2d2418;
+    --color-danger: #e05a4f;
+    --color-danger-subtle: #2d1c1a;
+    --color-success: #5ab87a;
+    --color-success-subtle: #1a2d20;
+    --color-surface: #242220;
+  }
+}
+
+[data-theme="dark"] {
+  --color-bg: #1a1816;
+  --color-bg-subtle: #222019;
+  --color-bg-muted: #2c2922;
+  --color-surface: #242220;
+  --color-border: #3a362f;
+  --color-border-subtle: #302d27;
+  --color-text: #e8e4df;
+  --color-text-secondary: #a8a29a;
+  --color-text-muted: #7a746d;
+  --color-accent: #d4925e;
+  --color-accent-hover: #e0a170;
+  --color-accent-subtle: #2d2418;
+  --color-danger: #e05a4f;
+  --color-danger-subtle: #2d1c1a;
+  --color-success: #5ab87a;
+  --color-success-subtle: #1a2d20;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Button reset */
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* Input reset */
+input, textarea, select {
+  font: inherit;
+  color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+}
+
+/* Link reset */
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Utility classes */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
