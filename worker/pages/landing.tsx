@@ -26,12 +26,13 @@ export const LandingPage: FC = () => {
             Open source &middot; Self-hosted
           </div>
           <h1 class="anim-2">
-            Simple content.<br />
-            <em>Clear mind.</em>
+            Edit your site.<br />
+            <em>From anywhere.</em>
           </h1>
           <p class="hero-sub anim-3">
-            A Git-backed CMS that brings calm to content management.
-            Your markdown stays in GitHub. Your API stays clean.
+            A web-based editor for your static site's markdown content.
+            Sign in with GitHub, edit your posts, and changes commit
+            directly to your repo. Your site builds as it always has.
           </p>
           <div class="hero-actions anim-4">
             <a href="/docs/getting-started" class="btn-primary">
@@ -49,7 +50,7 @@ export const LandingPage: FC = () => {
             </a>
           </div>
 
-          {/* Terminal showcase */}
+          {/* Editor showcase — show the editing flow, not an API call */}
           <div class="hero-terminal anim-5">
             <div class="term-bar">
               <div class="term-dots">
@@ -57,18 +58,19 @@ export const LandingPage: FC = () => {
                 <span class="term-dot" />
                 <span class="term-dot" />
               </div>
-              <span class="term-title">fetch-posts.js</span>
+              <span class="term-title">how it works</span>
               <div style="width:54px" />
             </div>
             <div class="term-body">
-              <span class="c">// Fetch all blog posts from your CMS</span>{'\n'}
-              <span class="k">const</span> response = <span class="k">await</span> <span class="n">fetch</span>({'\n'}
-              {'  '}<span class="s">"https://gitzen.dev/api/repos/you%2Fblog/content/posts"</span>,{'\n'}
-              {'  '}{'{'} headers: {'{'} Authorization: <span class="s">`Bearer $&#123;CMS_TOKEN&#125;`</span> {'}'} {'}'}{'\n'}
-              );{'\n'}
+              <span class="c">{'# Your content already lives in your repo'}</span>{'\n'}
+              src/content/blog/hello-world.md{'\n'}
+              src/content/blog/building-with-astro.md{'\n'}
               {'\n'}
-              <span class="k">const</span> posts = <span class="k">await</span> response.<span class="n">json</span>();{'\n'}
-              <span class="c">// [{'{'}slug: "hello-world", frontmatter: {'{'} title: "Hello World", date: "2025-01-15" {'}'}{'}'}]</span>
+              <span class="c">{'# gitzen gives you a visual editor for those files'}</span>{'\n'}
+              <span class="c">{'# edits commit directly to your GitHub repo'}</span>{'\n'}
+              <span class="c">{'# your SSG reads them from disk — no API needed'}</span>{'\n'}
+              {'\n'}
+              <span class="k">open</span> gitzen <span class="s">&rarr;</span> sign in <span class="s">&rarr;</span> edit <span class="s">&rarr;</span> save <span class="s">&rarr;</span> <span class="n">deployed</span>
             </div>
           </div>
         </div>
@@ -77,13 +79,25 @@ export const LandingPage: FC = () => {
       {/* Features */}
       <section class="section section-center">
         <div class="section-inner">
-          <div class="section-label">Built for developers</div>
-          <div class="section-title">Everything you need, nothing you don't.</div>
+          <div class="section-label">How it works</div>
+          <div class="section-title">Your files, your repo. Just a better editor.</div>
           <div class="section-desc">
-            No database. No vendor lock-in. Your content stays in Git where it belongs.
+            gitzen edits the markdown files that already live in your GitHub repo.
+            Your static site generator reads them from disk as it always has.
+            Delete gitzen and your site still works.
           </div>
 
           <div class="feat-grid">
+            <div class="feat">
+              <div class="feat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+              </div>
+              <h3>Visual editor</h3>
+              <p>Rich markdown editing with toolbar, frontmatter fields, and live preview. No code editor needed.</p>
+            </div>
+
             <div class="feat">
               <div class="feat-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -91,18 +105,20 @@ export const LandingPage: FC = () => {
                   <path d="M6 21V9a9 9 0 0 0 9 9" />
                 </svg>
               </div>
-              <h3>Git-backed storage</h3>
-              <p>Content lives as markdown in your repos. Full version history, branching, and PRs built in.</p>
+              <h3>Commits to your repo</h3>
+              <p>Every save is a real git commit. Full version history, branching, and pull requests — all through GitHub.</p>
             </div>
 
             <div class="feat">
               <div class="feat-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
                 </svg>
               </div>
-              <h3>Scoped API tokens</h3>
-              <p>Fine-grained permissions per token. Scope to specific repos. Perfect for CI/CD.</p>
+              <h3>Draft &amp; review workflow</h3>
+              <p>Save as draft to a branch, preview on Cloudflare Pages, review diffs, then merge when ready.</p>
             </div>
 
             <div class="feat">
@@ -111,18 +127,8 @@ export const LandingPage: FC = () => {
                   <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
                 </svg>
               </div>
-              <h3>Any framework</h3>
-              <p>Astro, Next.js, Hugo, Jekyll, Eleventy. Fetch content via REST at build time.</p>
-            </div>
-
-            <div class="feat">
-              <div class="feat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-              </div>
-              <h3>Visual editor</h3>
-              <p>WYSIWYG markdown editing with toolbar, live preview, and frontmatter fields.</p>
+              <h3>No vendor lock-in</h3>
+              <p>Works with any static site generator. Astro, Next.js, Hugo, Jekyll — anything that reads markdown from a directory.</p>
             </div>
 
             <div class="feat">
@@ -131,60 +137,41 @@ export const LandingPage: FC = () => {
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
               </div>
-              <h3>Encrypted at rest</h3>
-              <p>GitHub tokens encrypted with AES-256-GCM. API tokens signed with HMAC-SHA256.</p>
+              <h3>Encrypted &amp; self-hosted</h3>
+              <p>Deploy to your own Cloudflare Workers. GitHub tokens encrypted at rest. You own everything.</p>
             </div>
 
             <div class="feat">
               <div class="feat-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
               </div>
-              <h3>Self-hosted</h3>
-              <p>Deploy to Cloudflare Workers for free. Open source, MIT licensed. You own everything.</p>
+              <h3>Optional REST API</h3>
+              <p>Scoped API tokens for building pipelines and automations. Your site doesn't need it — but it's there if you do.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* API showcase */}
+      {/* How it works showcase — visual flow instead of API code */}
       <section class="section section-center">
         <div class="section-inner">
-          <div class="section-label">Simple API</div>
-          <div class="section-title">One request to fetch your content.</div>
+          <div class="section-label">Setup</div>
+          <div class="section-title">Three steps to start editing.</div>
           <div class="section-desc">
-            Read, create, and update content with a clean REST API. Authentication via scoped tokens.
+            Add a config file to your repo, deploy gitzen to Cloudflare Workers, and start editing.
           </div>
 
           <div class="code-showcase">
             <div class="code-panel">
-              <div class="code-panel-bar"><span>Request</span></div>
-              <pre><span class="c"># List all blog posts</span>{'\n'}<span class="k">GET</span> /api/repos/you%2Fblog/content/posts{'\n'}Authorization: Bearer <span class="s">cms_your_token</span>{'\n'}{'\n'}<span class="c"># Get a single post</span>{'\n'}<span class="k">GET</span> /api/repos/you%2Fblog/content/posts/hello-world{'\n'}{'\n'}<span class="c"># Create or update</span>{'\n'}<span class="k">PUT</span> /api/repos/you%2Fblog/content/posts/hello-world{'\n'}{'{'}{'\n'}  <span class="s">"frontmatter"</span>: {'{'} <span class="s">"title"</span>: <span class="s">"Hello"</span>, <span class="s">"date"</span>: <span class="s">"2025-01-15"</span> {'}'},\n  <span class="s">"body"</span>: <span class="s">"# Hello World\n\nWelcome."</span>{'\n'}{'}'}</pre>
+              <div class="code-panel-bar"><span>cms.config.json</span></div>
+              <pre>{'{'}{'\n'}  <span class="s">"name"</span>: <span class="s">"My Blog"</span>,{'\n'}  <span class="s">"collections"</span>: {'{'}{'\n'}    <span class="s">"blog"</span>: {'{'}{'\n'}      <span class="s">"label"</span>: <span class="s">"Blog Posts"</span>,{'\n'}      <span class="s">"directory"</span>: <span class="s">"src/content/blog"</span>,{'\n'}      <span class="s">"fields"</span>: [{'\n'}        {'{'} <span class="s">"name"</span>: <span class="s">"title"</span>, <span class="s">"type"</span>: <span class="s">"string"</span> {'}'},{'  \n'}        {'{'} <span class="s">"name"</span>: <span class="s">"date"</span>, <span class="s">"type"</span>: <span class="s">"date"</span> {'}'},{'  \n'}        {'{'} <span class="s">"name"</span>: <span class="s">"tags"</span>, <span class="s">"type"</span>: <span class="s">"string[]"</span> {'}'}{'\n'}      ]{'\n'}    {'}'}{'\n'}  {'}'}{'\n'}{'}'}</pre>
             </div>
             <div class="result-panel">
-              <div class="result-panel-bar"><span>Response</span></div>
-              <pre>{'['}{'\n'}  {'{'}{'\n'}    <span class="s">"slug"</span>: <span class="s">"hello-world"</span>,{'\n'}    <span class="s">"path"</span>: <span class="s">"content/blog/hello-world.md"</span>,{'\n'}    <span class="s">"sha"</span>: <span class="s">"a1b2c3d..."</span>,{'\n'}    <span class="s">"frontmatter"</span>: {'{'}{'\n'}      <span class="s">"title"</span>: <span class="s">"Hello World"</span>,{'\n'}      <span class="s">"date"</span>: <span class="s">"2025-01-15"</span>,{'\n'}      <span class="s">"tags"</span>: [<span class="s">"intro"</span>]{'\n'}    {'}'}{'\n'}  {'}'}{'\n'}{']'}</pre>
+              <div class="result-panel-bar"><span>What you get</span></div>
+              <pre><span class="c">{'Visual editor with:'}</span>{'\n'}{'\n'}<span class="n">{'  \u2713'}</span> Rich markdown toolbar{'\n'}<span class="n">{'  \u2713'}</span> Typed frontmatter fields{'\n'}<span class="n">{'  \u2713'}</span> Direct publish or draft PR{'\n'}<span class="n">{'  \u2713'}</span> Side-by-side diff review{'\n'}<span class="n">{'  \u2713'}</span> Cloudflare Pages previews{'\n'}<span class="n">{'  \u2713'}</span> Multi-repo support{'\n'}{'\n'}<span class="c">{'Your SSG reads files from disk.'}</span>{'\n'}<span class="c">{'No API integration required.'}</span></pre>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Integrations */}
-      <section class="section section-center" style="border-bottom:none">
-        <div class="section-inner">
-          <div class="section-label">Integrations</div>
-          <div class="section-title">Works with your stack.</div>
-          <div class="section-desc">
-            Step-by-step guides for the most popular static site generators.
-          </div>
-
-          <div class="integrations-row">
-            <a href="/docs/integrations/astro" class="integ">Astro <span class="integ-arrow">&rarr;</span></a>
-            <a href="/docs/integrations/nextjs" class="integ">Next.js <span class="integ-arrow">&rarr;</span></a>
-            <a href="/docs/integrations/jekyll" class="integ">Jekyll <span class="integ-arrow">&rarr;</span></a>
-            <a href="/docs/integrations/hugo" class="integ">Hugo <span class="integ-arrow">&rarr;</span></a>
-            <a href="/docs/integrations/eleventy" class="integ">Eleventy <span class="integ-arrow">&rarr;</span></a>
           </div>
         </div>
       </section>

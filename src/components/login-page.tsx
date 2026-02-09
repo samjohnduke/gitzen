@@ -44,7 +44,7 @@ export function LoginPage() {
           fontSize: 15,
           lineHeight: 1.5,
         }}>
-          Sign in with GitHub to manage your content.
+          Sign in with GitHub to edit your site.
         </p>
         <a
           href="/auth/login"

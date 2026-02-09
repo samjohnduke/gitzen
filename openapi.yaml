@@ -1,0 +1,1143 @@
+openapi: 3.0.3
+info:
+  title: gitzen API
+  description: |
+    REST API for gitzen — a web-based markdown editor for static sites.
+
+    gitzen edits markdown files in your GitHub repos. This API is optional — your
+    static site reads files from disk and doesn't need it. The API exists for
+    building automations, CI/CD pipelines, and programmatic content workflows.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://gitzen.dev
+    description: Hosted instance
+  - url: http://localhost:8787
+    description: Local development
+
+tags:
+  - name: Health
+    description: Health check
+  - name: Auth
+    description: Authentication status
+  - name: Repositories
+    description: Manage connected repositories
+  - name: Configuration
+    description: Read CMS configuration
+  - name: Content
+    description: Read and write markdown content
+  - name: Pull Requests
+    description: Draft workflow — branches, PRs, diffs, and merges
+  - name: Comments
+    description: PR comments
+  - name: Tokens
+    description: API token management (session auth only)
+  - name: GitHub
+    description: GitHub account data
+  - name: Device Auth
+    description: Device code flow for CLI tools
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      security: []
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Check authentication status
+      security: []
+      operationId: getAuthStatus
+      responses:
+        "200":
+          description: Authentication status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authenticated]
+                properties:
+                  authenticated:
+                    type: boolean
+                  username:
+                    type: string
+
+  # ── Repositories ──────────────────────────────────────────────
+
+  /api/repos:
+    get:
+      tags: [Repositories]
+      summary: List connected repositories
+      operationId: listRepos
+      description: |
+        Returns all repositories connected to gitzen. API tokens only see
+        repos within their scope.
+      responses:
+        "200":
+          description: List of connected repos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RepoConnection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Repositories]
+      summary: Connect a repository
+      operationId: addRepo
+      description: |
+        Connects a GitHub repository. The repo must have a `cms.config.json`
+        file at its root. Session auth only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName]
+              properties:
+                fullName:
+                  type: string
+                  description: Repository in `owner/repo` format
+                  example: samducker/my-blog
+      responses:
+        "201":
+          description: Repo connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "400":
+          description: Invalid format or missing cms.config.json
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: GitHub App not installed on repo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Repo already connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/repos/{repo}:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+
+    delete:
+      tags: [Repositories]
+      summary: Disconnect a repository
+      operationId: removeRepo
+      description: Session auth only.
+      responses:
+        "200":
+          description: Repo disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "404":
+          description: Repo not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Configuration ─────────────────────────────────────────────
+
+  /api/repos/{repo}/config:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+
+    get:
+      tags: [Configuration]
+      summary: Get CMS config
+      operationId: getConfig
+      description: Returns the parsed `cms.config.json` from the repository.
+      responses:
+        "200":
+          description: CMS configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CmsConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Content ───────────────────────────────────────────────────
+
+  /api/repos/{repo}/content/{collection}:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/collection"
+
+    get:
+      tags: [Content]
+      summary: List content items
+      operationId: listContent
+      description: Returns all markdown files in the collection with parsed frontmatter.
+      responses:
+        "200":
+          description: List of content items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContentItem"
+        "404":
+          description: Collection not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/repos/{repo}/content/{collection}/{slug}:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/collection"
+      - $ref: "#/components/parameters/slug"
+
+    get:
+      tags: [Content]
+      summary: Get a content item
+      operationId: getContent
+      description: |
+        Returns the full content item including markdown body. If a
+        `cms/{collection}/{slug}` branch exists, the response includes
+        `branch` and `prNumber` fields. Use `?branch=` to read from a
+        specific branch.
+      parameters:
+        - name: branch
+          in: query
+          description: Read from a specific branch
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Content item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentItem"
+        "404":
+          description: Item or collection not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags: [Content]
+      summary: Create or update a content item
+      operationId: saveContent
+      description: |
+        Omit `sha` for new items. Include the current `sha` for updates
+        (conflict detection). Set `mode` to `"branch"` to save to a draft
+        branch instead of the default branch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [frontmatter, body]
+              properties:
+                frontmatter:
+                  type: object
+                  additionalProperties: true
+                  description: Frontmatter fields
+                body:
+                  type: string
+                  description: Markdown body
+                sha:
+                  type: string
+                  description: Current file SHA (required for updates)
+                mode:
+                  type: string
+                  enum: [direct, branch]
+                  default: direct
+                  description: "`direct` commits to main, `branch` commits to `cms/{collection}/{slug}`"
+      responses:
+        "200":
+          description: Content saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sha, path]
+                properties:
+                  sha:
+                    type: string
+                  path:
+                    type: string
+                  branch:
+                    type: string
+                    description: Present when mode is `branch`
+        "403":
+          description: GitHub App not installed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Collection not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflict — file modified externally
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags: [Content]
+      summary: Delete a content item
+      operationId: deleteContent
+      description: The `sha` query parameter is required to prevent accidental deletion.
+      parameters:
+        - name: sha
+          in: query
+          required: true
+          description: Current file SHA
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Content deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "400":
+          description: Missing sha parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Item or collection not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Pull Requests ─────────────────────────────────────────────
+
+  /api/repos/{repo}/pulls:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+
+    get:
+      tags: [Pull Requests]
+      summary: List open CMS pull requests
+      operationId: listPullRequests
+      description: Returns all open PRs with `cms/*` branches.
+      responses:
+        "200":
+          description: List of pull requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PullRequestSummary"
+
+    post:
+      tags: [Pull Requests]
+      summary: Create a pull request
+      operationId: createPullRequest
+      description: Creates a PR from an existing CMS branch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch, title]
+              properties:
+                branch:
+                  type: string
+                  example: cms/blog/my-post
+                title:
+                  type: string
+                  example: "Draft: My New Post"
+                body:
+                  type: string
+      responses:
+        "200":
+          description: Pull request created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [number, htmlUrl]
+                properties:
+                  number:
+                    type: integer
+                  htmlUrl:
+                    type: string
+                    format: uri
+                  previewUrl:
+                    type: string
+                    format: uri
+                    nullable: true
+
+  /api/repos/{repo}/pulls/{number}:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/prNumber"
+
+    get:
+      tags: [Pull Requests]
+      summary: Get PR detail
+      operationId: getPullRequest
+      description: Returns full PR detail including mergeable status.
+      responses:
+        "200":
+          description: Pull request detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequestDetail"
+
+    delete:
+      tags: [Pull Requests]
+      summary: Close PR and delete branch
+      operationId: closePullRequest
+      description: Closes the PR without merging and deletes the branch.
+      responses:
+        "200":
+          description: PR closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+
+  /api/repos/{repo}/pulls/{number}/diff:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/prNumber"
+
+    get:
+      tags: [Pull Requests]
+      summary: Get structured content diff
+      operationId: getPullRequestDiff
+      description: |
+        Returns a structured diff comparing the PR branch to the base branch.
+        Frontmatter fields are diffed individually. Body is returned as
+        old/new text for client-side rendering.
+      responses:
+        "200":
+          description: Content diffs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContentDiff"
+
+  /api/repos/{repo}/pulls/{number}/merge:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/prNumber"
+
+    put:
+      tags: [Pull Requests]
+      summary: Squash merge PR
+      operationId: mergePullRequest
+      description: Squash merges the PR and deletes the branch.
+      responses:
+        "200":
+          description: Merge succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sha, merged]
+                properties:
+                  sha:
+                    type: string
+                  merged:
+                    type: boolean
+                    example: true
+        "409":
+          description: Merge conflicts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [merged, reason]
+                properties:
+                  merged:
+                    type: boolean
+                    example: false
+                  reason:
+                    type: string
+                    example: conflicts
+
+  /api/repos/{repo}/pulls/{number}/update:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/prNumber"
+
+    put:
+      tags: [Pull Requests]
+      summary: Update PR branch
+      operationId: updatePullRequestBranch
+      description: Merges the default branch into the PR branch.
+      responses:
+        "200":
+          description: Branch updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "409":
+          description: Conflicts prevent update
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    example: false
+                  reason:
+                    type: string
+                    example: conflicts
+
+  /api/repos/{repo}/pulls/{number}/rebase:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/prNumber"
+
+    post:
+      tags: [Pull Requests]
+      summary: Force rebase PR branch
+      operationId: rebasePullRequest
+      description: |
+        Recreates the branch from the latest default branch HEAD and
+        re-commits the file content. Safe for CMS branches since they are
+        single-file edits and PRs are squash-merged.
+      responses:
+        "200":
+          description: Rebase succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "400":
+          description: Not a CMS branch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Comments ──────────────────────────────────────────────────
+
+  /api/repos/{repo}/pulls/{number}/comments:
+    parameters:
+      - $ref: "#/components/parameters/repo"
+      - $ref: "#/components/parameters/prNumber"
+
+    get:
+      tags: [Comments]
+      summary: List PR comments
+      operationId: listPrComments
+      responses:
+        "200":
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PrComment"
+
+    post:
+      tags: [Comments]
+      summary: Add a comment to a PR
+      operationId: createPrComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  description: Comment text
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrComment"
+        "400":
+          description: Empty comment body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Tokens ────────────────────────────────────────────────────
+
+  /api/tokens:
+    get:
+      tags: [Tokens]
+      summary: List API tokens
+      operationId: listTokens
+      description: Session auth only. API tokens cannot list tokens.
+      responses:
+        "200":
+          description: List of tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiTokenSummary"
+
+    post:
+      tags: [Tokens]
+      summary: Create an API token
+      operationId: createToken
+      description: Session auth only. The `token` field is only in the creation response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, repos, permissions]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                  example: build-token
+                repos:
+                  type: array
+                  items:
+                    type: string
+                  description: "Repo names, or `[\"*\"]` for all"
+                  example: ["samducker/my-blog"]
+                permissions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Permission"
+                expiresIn:
+                  type: integer
+                  nullable: true
+                  description: Seconds until expiry, or null for no expiry
+                  example: 7776000
+      responses:
+        "201":
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiTokenCreated"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tokens/{tokenId}:
+    parameters:
+      - name: tokenId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    delete:
+      tags: [Tokens]
+      summary: Revoke an API token
+      operationId: revokeToken
+      description: Session auth only.
+      responses:
+        "200":
+          description: Token revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "404":
+          description: Token not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── GitHub ────────────────────────────────────────────────────
+
+  /api/github/repos:
+    get:
+      tags: [GitHub]
+      summary: List accessible GitHub repos
+      operationId: listGithubRepos
+      description: Returns repos accessible via the GitHub App installation.
+      responses:
+        "200":
+          description: List of GitHub repos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [fullName, private]
+                  properties:
+                    fullName:
+                      type: string
+                      example: samducker/my-blog
+                    private:
+                      type: boolean
+                    description:
+                      type: string
+                      nullable: true
+
+  # ── Device Auth ───────────────────────────────────────────────
+
+  /auth/device:
+    post:
+      tags: [Device Auth]
+      summary: Initiate device code flow
+      operationId: requestDeviceCode
+      security: []
+      responses:
+        "200":
+          description: Device code issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deviceCode, userCode, verificationUri, expiresIn, interval]
+                properties:
+                  deviceCode:
+                    type: string
+                  userCode:
+                    type: string
+                    example: ABCD-1234
+                  verificationUri:
+                    type: string
+                    format: uri
+                  expiresIn:
+                    type: integer
+                    description: Seconds until code expires
+                  interval:
+                    type: integer
+                    description: Minimum polling interval in seconds
+        "502":
+          description: GitHub API error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/device/token:
+    post:
+      tags: [Device Auth]
+      summary: Poll for device authorization
+      operationId: pollDeviceToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceCode]
+              properties:
+                deviceCode:
+                  type: string
+      responses:
+        "200":
+          description: Authorization status
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [status]
+                    properties:
+                      status:
+                        type: string
+                        enum: [pending, slow_down, expired, denied]
+                  - type: object
+                    required: [status, token, expiresAt, username]
+                    properties:
+                      status:
+                        type: string
+                        enum: [success]
+                      token:
+                        type: string
+                        example: cms_a1b2c3...
+                      expiresAt:
+                        type: string
+                        format: date-time
+                      username:
+                        type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "API token in format `cms_...`"
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: cms_session
+      description: Browser session cookie
+
+  parameters:
+    repo:
+      name: repo
+      in: path
+      required: true
+      description: "URL-encoded repository name (`owner%2Frepo-name`)"
+      schema:
+        type: string
+      example: samducker%2Fmy-blog
+
+    collection:
+      name: collection
+      in: path
+      required: true
+      description: Collection name from cms.config.json
+      schema:
+        type: string
+      example: blog
+
+    slug:
+      name: slug
+      in: path
+      required: true
+      description: Content item slug (filename without extension)
+      schema:
+        type: string
+      example: hello-world
+
+    prNumber:
+      name: number
+      in: path
+      required: true
+      description: Pull request number
+      schema:
+        type: integer
+      example: 42
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Permission:
+      type: string
+      enum:
+        - "content:read"
+        - "content:write"
+        - "content:delete"
+        - "content:publish"
+        - "config:read"
+        - "repos:read"
+
+    RepoConnection:
+      type: object
+      required: [fullName, addedAt]
+      properties:
+        fullName:
+          type: string
+          example: samducker/my-blog
+        addedAt:
+          type: string
+          format: date-time
+
+    CmsConfig:
+      type: object
+      required: [name, collections]
+      properties:
+        name:
+          type: string
+        collections:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/CollectionConfig"
+        preview:
+          type: object
+          properties:
+            pagesProject:
+              type: string
+
+    CollectionConfig:
+      type: object
+      required: [label, directory, fields]
+      properties:
+        label:
+          type: string
+        directory:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldDefinition"
+        workflow:
+          type: object
+          properties:
+            default:
+              type: string
+              enum: [pr, direct]
+            locked:
+              type: boolean
+
+    FieldDefinition:
+      type: object
+      required: [name, type, label]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [string, "string[]", number, boolean, date]
+        label:
+          type: string
+        required:
+          type: boolean
+        default: {}
+
+    ContentItem:
+      type: object
+      required: [slug, path, sha, frontmatter]
+      properties:
+        slug:
+          type: string
+        path:
+          type: string
+        sha:
+          type: string
+        frontmatter:
+          type: object
+          additionalProperties: true
+        body:
+          type: string
+          description: Present when fetching a single item
+        branch:
+          type: string
+          description: Present when item has an active draft branch
+        prNumber:
+          type: integer
+          description: Present when item has an open PR
+
+    PullRequestSummary:
+      type: object
+      required:
+        - number
+        - title
+        - branch
+        - state
+        - merged
+        - createdAt
+        - updatedAt
+        - collection
+        - slug
+        - author
+      properties:
+        number:
+          type: integer
+        title:
+          type: string
+        branch:
+          type: string
+        state:
+          type: string
+          enum: [open, closed]
+        merged:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        collection:
+          type: string
+        slug:
+          type: string
+        previewUrl:
+          type: string
+          format: uri
+          nullable: true
+        author:
+          type: string
+
+    PullRequestDetail:
+      allOf:
+        - $ref: "#/components/schemas/PullRequestSummary"
+        - type: object
+          required: [body, headSha, baseSha, htmlUrl]
+          properties:
+            body:
+              type: string
+            mergeable:
+              type: boolean
+              nullable: true
+            headSha:
+              type: string
+            baseSha:
+              type: string
+            htmlUrl:
+              type: string
+              format: uri
+
+    ContentDiff:
+      type: object
+      required: [collection, slug, type, frontmatter, body]
+      properties:
+        collection:
+          type: string
+        slug:
+          type: string
+        type:
+          type: string
+          enum: [added, modified, deleted]
+        frontmatter:
+          type: object
+          required: [fields]
+          properties:
+            fields:
+              type: array
+              items:
+                type: object
+                required: [name, changed]
+                properties:
+                  name:
+                    type: string
+                  oldValue: {}
+                  newValue: {}
+                  changed:
+                    type: boolean
+        body:
+          type: object
+          required: [oldBody, newBody]
+          properties:
+            oldBody:
+              type: string
+            newBody:
+              type: string
+
+    PrComment:
+      type: object
+      required: [id, body, author, avatarUrl, createdAt]
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        author:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+
+    ApiTokenSummary:
+      type: object
+      required: [tokenId, name, repos, permissions, createdAt]
+      properties:
+        tokenId:
+          type: string
+        name:
+          type: string
+        repos:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ApiTokenCreated:
+      allOf:
+        - $ref: "#/components/schemas/ApiTokenSummary"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: Only shown once at creation time
+              example: cms_a1b2c3d4e5...

@@ -1,6 +1,6 @@
 # samduke-cms
 
-Custom Git-backed CMS for managing markdown content across multiple GitHub repos.
+Web-based markdown editor for static sites. Edits commit directly to GitHub repos — your SSG reads files from disk as always.
 
 ## Architecture
 

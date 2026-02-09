@@ -1,66 +1,22 @@
 ---
 title: Getting Started
-description: Set up samduke-cms and make your first API call in under 5 minutes.
+description: Configure your repo and start editing your site's content from the browser.
 order: 1
 ---
 
-A quick guide to getting samduke-cms running and fetching your first piece of content.
+Get up and running with gitzen in a few minutes.
 
-## What is samduke-cms?
+## What is gitzen?
 
-samduke-cms is a Git-backed content management system that runs on Cloudflare Workers. It stores your content as markdown files in GitHub repositories and exposes a REST API for reading and writing content. It works with any static site generator — Astro, Next.js, Jekyll, Hugo, Eleventy, or anything that can make HTTP requests at build time.
+gitzen is a web-based editor for your static site's markdown content. It connects to your GitHub repos and gives you a visual editor for the markdown files your site already uses — blog posts, docs, project pages, anything with frontmatter.
 
-## Prerequisites
+Every save is a real git commit to your repo. Your static site generator (Astro, Hugo, Next.js, Jekyll, etc.) reads those files from disk as it always has. gitzen doesn't change your build process and your site doesn't depend on it.
 
-- A [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier works)
-- A [GitHub account](https://github.com)
-- [Node.js](https://nodejs.org) 18+ and npm
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) (`npm install -g wrangler`)
+**It is not a CMS in the traditional sense.** There's no content database and your site doesn't fetch from an API at build time. gitzen is just a better way to edit the files that are already there.
 
-## 1. Create a GitHub App
+## 1. Add cms.config.json to your repo
 
-samduke-cms authenticates via a GitHub App (not a personal access token).
-
-1. Go to **Settings → Developer settings → GitHub Apps → New GitHub App**
-2. Set the callback URL to `https://your-cms.workers.dev/auth/callback` (or `http://localhost:8787/auth/callback` for local dev)
-3. Under **Permissions**, grant:
-   - **Repository → Contents**: Read and write
-   - **Repository → Metadata**: Read-only
-4. Save the **Client ID** and generate a **Client Secret**
-
-## 2. Clone and deploy
-
-```bash
-git clone https://github.com/samducker/samduke-cms.git
-cd samduke-cms
-npm install --legacy-peer-deps
-```
-
-Set the required secrets:
-
-```bash
-wrangler secret put GITHUB_APP_CLIENT_ID
-wrangler secret put GITHUB_APP_CLIENT_SECRET
-wrangler secret put ENCRYPTION_KEY       # any 32+ character random string
-wrangler secret put API_TOKEN_SECRET     # any 32+ character random string
-```
-
-Create the KV namespaces:
-
-```bash
-wrangler kv namespace create SESSIONS
-wrangler kv namespace create CMS_DATA
-```
-
-Update `wrangler.jsonc` with the KV namespace IDs from the output, then deploy:
-
-```bash
-npm run deploy
-```
-
-## 3. Add cms.config.json to your repo
-
-In the GitHub repository you want to manage, create a `cms.config.json` file at the root:
+In the GitHub repository that contains your site's content, create a `cms.config.json` file at the root. This tells gitzen where your markdown files live and what frontmatter fields they have:
 
 ```json
 {
@@ -81,51 +37,29 @@ In the GitHub repository you want to manage, create a `cms.config.json` file at 
 }
 ```
 
-## 4. Connect your repo
+The `directory` should point to where your site already stores its content files. See the [Configuration](/docs/configuration) guide for the full reference.
 
-1. Visit your CMS at `https://your-cms.workers.dev/app`
+## 2. Install the GitHub App
+
+gitzen needs access to read and write files in your repo. Install the GitHub App on your repository:
+
+1. Go to [github.com/apps/git-zen-cms](https://github.com/apps/git-zen-cms)
+2. Click **Install** and select the repositories you want to use with gitzen
+
+## 3. Sign in and connect your repo
+
+1. Visit [gitzen.dev/app](https://gitzen.dev/app)
 2. Sign in with GitHub
 3. Click **Add Repository** and select your repo
+4. Open a collection from the sidebar — you'll see your existing content
+5. Click any item to edit it, or create new content
 
-The CMS validates that `cms.config.json` exists before connecting.
-
-## 5. Create an API token
-
-Go to **Settings → API Tokens** in the CMS app and create a new token:
-
-- **Name**: `build-token`
-- **Repos**: Select your repository (or `*` for all)
-- **Permissions**: `content:read`, `config:read`
-
-Copy the token — it's only shown once. It looks like `cms_a1b2c3...`.
-
-## 6. Make your first API call
-
-```bash
-curl -H "Authorization: Bearer cms_your_token_here" \
-  https://your-cms.workers.dev/api/repos/owner%2Frepo-name/content/blog
-```
-
-Response:
-
-```json
-[
-  {
-    "slug": "hello-world",
-    "path": "src/content/blog/hello-world.md",
-    "sha": "abc123...",
-    "frontmatter": {
-      "title": "Hello World",
-      "date": "2025-01-15",
-      "tags": ["intro"]
-    }
-  }
-]
-```
+Changes are committed directly to your repo's default branch. Your site rebuilds and deploys as usual.
 
 ## Next steps
 
 - [Configuration](/docs/configuration) — full `cms.config.json` reference
-- [Authentication](/docs/authentication) — API tokens, permissions, device code flow
-- [API Reference](/docs/api-reference) — complete endpoint documentation
-- [Integration guides](/docs/integrations/astro) — connect to your SSG
+- [Content Workflow](/docs/workflow) — draft branches, PR review, preview deployments
+- [Authentication](/docs/authentication) — API tokens and device code flow
+- [API Reference](/docs/api-reference) — REST API for automations and pipelines
+- [Self-Hosting](/docs/self-hosting) — deploy your own gitzen instance

@@ -4,7 +4,7 @@ description: Reference for the cms.config.json file that defines your content co
 order: 2
 ---
 
-samduke-cms uses a `cms.config.json` file in the root of your repository to define content collections and their fields.
+gitzen uses a `cms.config.json` file in the root of your repository to define content collections and their fields. This tells the editor where your markdown files live and what frontmatter fields to display.
 
 ## File format
 
@@ -208,5 +208,5 @@ Each field has the following properties:
 - The `directory` path is relative to the repository root.
 - Content files must be `.md` or `.mdx` — the CMS looks for both extensions.
 - The `name` field in the config is used as the site label in the CMS UI sidebar.
-- Collection names are used in API paths, so keep them URL-friendly (lowercase, hyphens).
+- Collection names should be URL-friendly (lowercase, hyphens).
 - Date fields use `YYYY-MM-DD` format, not ISO timestamps.

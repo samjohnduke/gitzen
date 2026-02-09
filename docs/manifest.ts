@@ -22,16 +22,7 @@ export const docsNav: NavItem[] = [
   { title: "Content Workflow", slug: "workflow" },
   { title: "Authentication", slug: "authentication" },
   { title: "API Reference", slug: "api-reference" },
-  {
-    title: "Integrations",
-    children: [
-      { title: "Astro", slug: "integrations/astro" },
-      { title: "Next.js", slug: "integrations/nextjs" },
-      { title: "Jekyll", slug: "integrations/jekyll" },
-      { title: "Hugo", slug: "integrations/hugo" },
-      { title: "Eleventy", slug: "integrations/eleventy" },
-    ],
-  },
+  { title: "Self-Hosting", slug: "self-hosting" },
 ];
 
 /** Flat list of all doc slugs in order, for prev/next navigation. */

@@ -13,11 +13,10 @@ import configuration from "../../docs/content/configuration.md";
 import workflow from "../../docs/content/workflow.md";
 import authentication from "../../docs/content/authentication.md";
 import apiReference from "../../docs/content/api-reference.md";
-import astro from "../../docs/content/integrations/astro.md";
-import nextjs from "../../docs/content/integrations/nextjs.md";
-import jekyll from "../../docs/content/integrations/jekyll.md";
-import hugo from "../../docs/content/integrations/hugo.md";
-import eleventy from "../../docs/content/integrations/eleventy.md";
+import selfHosting from "../../docs/content/self-hosting.md";
+
+// OpenAPI spec — imported as raw text
+import openapiSpec from "../../openapi.yaml?raw";
 
 const docMap: Record<string, DocModule> = {
   "getting-started": gettingStarted,
@@ -25,11 +24,7 @@ const docMap: Record<string, DocModule> = {
   workflow: workflow,
   authentication: authentication,
   "api-reference": apiReference,
-  "integrations/astro": astro,
-  "integrations/nextjs": nextjs,
-  "integrations/jekyll": jekyll,
-  "integrations/hugo": hugo,
-  "integrations/eleventy": eleventy,
+  "self-hosting": selfHosting,
 };
 
 type SiteApp = { Bindings: Env };
@@ -39,13 +34,46 @@ const site = new Hono<SiteApp>();
 site.get("/", (c) => {
   const page = (
     <PageLayout
-      title="gitzen — Git-backed CMS for markdown content"
-      description="A calm, API-first content management system that stores everything as markdown in your GitHub repos. Works with any static site generator."
+      title="gitzen — Edit your static site from anywhere"
+      description="A web-based markdown editor for static sites. Edits commit directly to your GitHub repo. Works with any static site generator."
     >
       <LandingPage />
     </PageLayout>
   );
   return c.html(page);
+});
+
+// Serve OpenAPI spec
+site.get("/api/openapi.yaml", (c) => {
+  return c.text(openapiSpec, 200, {
+    "Content-Type": "text/yaml; charset=utf-8",
+    "Cache-Control": "public, max-age=3600",
+  });
+});
+
+// Standalone interactive API reference (Scalar — renders its own full page)
+site.get("/reference", (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API Reference — gitzen</title>
+  <meta name="description" content="Interactive REST API documentation for gitzen" />
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1/dist/browser/standalone.min.js"></script>
+  <script>
+    Scalar.createApiReference(document.body, {
+      url: '/api/openapi.yaml',
+      theme: 'default',
+      hideModels: false,
+      hideDownloadButton: false,
+    })
+  </script>
+</body>
+</html>`;
+  return c.html(html);
 });
 
 // Docs index → redirect to getting-started

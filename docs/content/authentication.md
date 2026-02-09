@@ -4,17 +4,17 @@ description: How authentication works in samduke-cms — browser sessions, API t
 order: 3
 ---
 
-samduke-cms supports three authentication methods: browser sessions for the web UI, API tokens for programmatic access, and device code flow for CLI tools.
+gitzen supports three authentication methods: browser sessions for the web editor, API tokens for programmatic access, and device code flow for CLI tools.
 
 ## Browser sessions
 
 When you sign in via the web UI at `/app`, the CMS redirects to GitHub for OAuth. After authorization, a session cookie (`cms_session`) is set with a 30-day expiry.
 
-Sessions have full access — they bypass all permission checks. This is because the browser UI is for interactive management by the repository owner.
+Sessions have full access — they bypass all permission checks. This is because the browser editor is for interactive use by the repository owner.
 
 ## API tokens
 
-API tokens are designed for build scripts, CI/CD pipelines, and programmatic access. They support fine-grained permissions and repo scoping.
+API tokens are designed for automations, CI/CD pipelines, and programmatic access. They support fine-grained permissions and repo scoping. Note: your static site doesn't need API tokens — it reads content files directly from disk.
 
 ### Creating a token
 
@@ -59,7 +59,7 @@ Tokens must specify at least one permission. Available permissions:
 | `config:read` | Read `cms.config.json` from repos |
 | `repos:read` | List connected repositories |
 
-A typical build token only needs `content:read` and `config:read`. A CI token that auto-publishes approved content needs `content:publish`.
+A token for content automation only needs `content:read` and `config:read`. A CI token that auto-publishes approved drafts needs `content:publish`.
 
 ### Repo scoping
 

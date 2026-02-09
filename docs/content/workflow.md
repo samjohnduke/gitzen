@@ -4,7 +4,7 @@ description: PR-based content workflow — draft branches, preview deployments, 
 order: 2.5
 ---
 
-samduke-cms supports two content save modes: **direct publish** (commit straight to main) and **draft PR** (commit to a branch with a pull request for review and preview).
+gitzen supports two content save modes: **direct publish** (commit straight to main) and **draft PR** (commit to a branch with a pull request for review and preview).
 
 ## Overview
 

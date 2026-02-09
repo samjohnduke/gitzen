@@ -266,7 +266,7 @@ a:hover{text-decoration:underline}
 .term-body{
   background:var(--g-term-bg);padding:22px 22px 26px;
   font-family:var(--g-mono);font-size:13px;
-  line-height:1.8;color:var(--g-term-text);overflow-x:auto;
+  line-height:1.8;color:var(--g-term-text);overflow-x:auto;text-align:left;white-space:pre-wrap;
 }
 .term-body .c{color:var(--g-term-comment)}
 .term-body .s{color:var(--g-term-string)}
@@ -342,7 +342,7 @@ a:hover{text-decoration:underline}
 .code-panel-bar span{font-family:var(--g-mono);font-size:11px;color:var(--g-term-comment)}
 .code-panel pre{
   padding:20px;margin:0;font-family:var(--g-mono);font-size:12.5px;
-  line-height:1.7;color:var(--g-term-text);overflow-x:auto;
+  line-height:1.7;color:var(--g-term-text);overflow-x:auto;text-align:left;
 }
 .code-panel pre .k{color:var(--g-term-keyword)}
 .code-panel pre .s{color:var(--g-term-string)}
@@ -357,7 +357,7 @@ a:hover{text-decoration:underline}
 .result-panel-bar span{font-family:var(--g-mono);font-size:11px;color:var(--g-term-comment)}
 .result-panel pre{
   padding:20px;margin:0;flex:1;font-family:var(--g-mono);font-size:12.5px;
-  line-height:1.7;color:var(--g-term-text);overflow-x:auto;
+  line-height:1.7;color:var(--g-term-text);overflow-x:auto;text-align:left;
 }
 .result-panel pre .k{color:var(--g-term-keyword)}
 .result-panel pre .s{color:var(--g-term-string)}
@@ -438,6 +438,8 @@ a:hover{text-decoration:underline}
 }
 
 .docs-content{padding:40px 52px;min-width:0}
+.docs-content-wide{flex:1;max-width:none;padding:0;overflow:hidden}
+.docs-content-wide #api-reference{min-height:80vh}
 @media(max-width:768px){.docs-content{padding:24px 20px}}
 
 /* Prose */

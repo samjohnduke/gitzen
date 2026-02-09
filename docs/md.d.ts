@@ -5,3 +5,8 @@ declare module "*.md" {
   export const toc: import("./manifest.js").TocEntry[];
   export default mod;
 }
+
+declare module "*.yaml?raw" {
+  const content: string;
+  export default content;
+}

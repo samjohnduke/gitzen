@@ -1,10 +1,12 @@
 ---
 title: API Reference
-description: Complete REST API documentation for samduke-cms.
+description: REST API documentation for gitzen.
 order: 4
 ---
 
-All API endpoints are available at your CMS worker URL (e.g., `https://your-cms.workers.dev`).
+All API endpoints are available at your gitzen instance URL (e.g., `https://gitzen.dev`). Your static site doesn't need this API — it reads content files from disk. The API is for building automations and pipelines.
+
+> **[Interactive API Reference →](/reference)** — browse endpoints, schemas, and try requests with the OpenAPI spec viewer. You can also download the [OpenAPI spec](/api/openapi.yaml) directly.
 
 ## Authentication
 
