@@ -37,8 +37,19 @@ tokens.post("/", async (c) => {
     return c.json({ error: "Name is required (max 100 chars)" }, 400);
   }
 
+  if (!/^[\w\s\-:.()'+,]+$/.test(body.name)) {
+    return c.json({ error: "Token name contains invalid characters" }, 400);
+  }
+
   if (!body.repos || body.repos.length === 0) {
     return c.json({ error: "At least one repo (or '*') is required" }, 400);
+  }
+
+  const REPO_FORMAT_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+  for (const repo of body.repos) {
+    if (repo !== "*" && !REPO_FORMAT_RE.test(repo)) {
+      return c.json({ error: `Invalid repo format: ${repo}` }, 400);
+    }
   }
 
   if (!body.permissions || body.permissions.length === 0) {
@@ -48,6 +59,15 @@ tokens.post("/", async (c) => {
   for (const perm of body.permissions) {
     if (!VALID_PERMISSIONS.includes(perm)) {
       return c.json({ error: `Invalid permission: ${perm}` }, 400);
+    }
+  }
+
+  if (body.expiresIn !== undefined && body.expiresIn !== null) {
+    if (body.expiresIn < 300) {
+      return c.json({ error: "Expiry must be at least 300 seconds (5 minutes)" }, 400);
+    }
+    if (body.expiresIn > 31536000) {
+      return c.json({ error: "Expiry must not exceed 31536000 seconds (1 year)" }, 400);
     }
   }
 

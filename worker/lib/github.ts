@@ -1,5 +1,13 @@
 const GITHUB_API = "https://api.github.com";
 
+/** Encode each segment of a file path for use in GitHub API URLs. */
+export function encodePath(filePath: string): string {
+  return filePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 interface GitHubFileResponse {
   name: string;
   path: string;
@@ -51,7 +59,7 @@ export class GitHubClient {
   ): Promise<{ content: string; sha: string }> {
     const ref = branch ? `?ref=${encodeURIComponent(branch)}` : "";
     const data = await this.request<GitHubFileResponse>(
-      `/repos/${repo}/contents/${path}${ref}`
+      `/repos/${repo}/contents/${encodePath(path)}${ref}`
     );
     const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ""))));
     return { content, sha: data.sha };
@@ -64,7 +72,7 @@ export class GitHubClient {
   ): Promise<GitHubDirectoryItem[]> {
     const ref = branch ? `?ref=${encodeURIComponent(branch)}` : "";
     return this.request<GitHubDirectoryItem[]>(
-      `/repos/${repo}/contents/${path}${ref}`
+      `/repos/${repo}/contents/${encodePath(path)}${ref}`
     );
   }
 
@@ -84,7 +92,7 @@ export class GitHubClient {
     if (branch) body.branch = branch;
 
     const data = await this.request<{ content: { sha: string } }>(
-      `/repos/${repo}/contents/${path}`,
+      `/repos/${repo}/contents/${encodePath(path)}`,
       {
         method: "PUT",
         body: JSON.stringify(body),
@@ -102,7 +110,7 @@ export class GitHubClient {
   ): Promise<void> {
     const body: Record<string, unknown> = { message, sha };
     if (branch) body.branch = branch;
-    await this.request(`/repos/${repo}/contents/${path}`, {
+    await this.request(`/repos/${repo}/contents/${encodePath(path)}`, {
       method: "DELETE",
       body: JSON.stringify(body),
     });
@@ -319,7 +327,7 @@ export class GitHubApiError extends Error {
   path: string;
 
   constructor(status: number, body: string, path: string) {
-    super(`GitHub API error ${status} on ${path}: ${body}`);
+    super(`GitHub API error ${status}`);
     this.status = status;
     this.body = body;
     this.path = path;

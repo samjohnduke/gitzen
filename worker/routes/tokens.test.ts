@@ -212,6 +212,118 @@ describe("tokens routes", () => {
       expect(res.status).toBe(400);
     });
 
+    it("rejects HTML in token name", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "<script>alert(1)</script>",
+        repos: ["*"],
+        permissions: ["content:read"],
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: string }>();
+      expect(body.error).toContain("invalid characters");
+    });
+
+    it("accepts valid token name characters", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "CI deploy (prod): v2.0 - main",
+        repos: ["*"],
+        permissions: ["content:read"],
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it("rejects invalid repo format", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["not-a-valid-repo"],
+        permissions: ["content:read"],
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: string }>();
+      expect(body.error).toContain("Invalid repo format");
+    });
+
+    it("rejects repo starting with dot", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: [".hidden/repo"],
+        permissions: ["content:read"],
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("accepts wildcard repo", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["*"],
+        permissions: ["content:read"],
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it("accepts valid owner/repo format", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["owner/my-repo.js"],
+        permissions: ["content:read"],
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it("rejects negative expiry", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["*"],
+        permissions: ["content:read"],
+        expiresIn: -100,
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: string }>();
+      expect(body.error).toContain("at least 300");
+    });
+
+    it("rejects zero expiry", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["*"],
+        permissions: ["content:read"],
+        expiresIn: 0,
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects expiry exceeding 1 year", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["*"],
+        permissions: ["content:read"],
+        expiresIn: 31536001,
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: string }>();
+      expect(body.error).toContain("must not exceed");
+    });
+
+    it("accepts expiry at minimum bound (300s)", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["*"],
+        permissions: ["content:read"],
+        expiresIn: 300,
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it("accepts expiry at maximum bound (1 year)", async () => {
+      const res = await post(createApp(sessionAuth), {
+        name: "Test",
+        repos: ["*"],
+        permissions: ["content:read"],
+        expiresIn: 31536000,
+      });
+      expect(res.status).toBe(201);
+    });
+
     it("rejects API token auth (session only, no token inception)", async () => {
       const res = await post(createApp(apiTokenAuth), {
         name: "Inception",

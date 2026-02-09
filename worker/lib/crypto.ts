@@ -6,25 +6,41 @@
  * - HMAC-SHA256 for signing CMS API tokens
  */
 
-/** Derive a 256-bit CryptoKey from a secret string. */
+const HKDF_SALT = new TextEncoder().encode("gitzen-cms");
+
+/** Derive a 256-bit CryptoKey from a secret string using HKDF. */
 async function deriveKey(
   secret: string,
   usage: "encrypt" | "sign"
 ): Promise<CryptoKey> {
   const encoded = new TextEncoder().encode(secret);
-  const hash = await crypto.subtle.digest("SHA-256", encoded);
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoded,
+    "HKDF",
+    false,
+    ["deriveKey"]
+  );
+
+  const info = new TextEncoder().encode(
+    usage === "encrypt" ? "aes-gcm-encrypt" : "hmac-sign"
+  );
 
   if (usage === "encrypt") {
-    return crypto.subtle.importKey("raw", hash, "AES-GCM", false, [
-      "encrypt",
-      "decrypt",
-    ]);
+    return crypto.subtle.deriveKey(
+      { name: "HKDF", hash: "SHA-256", salt: HKDF_SALT, info },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
   }
 
-  return crypto.subtle.importKey(
-    "raw",
-    hash,
-    { name: "HMAC", hash: "SHA-256" },
+  return crypto.subtle.deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt: HKDF_SALT, info },
+    keyMaterial,
+    { name: "HMAC", hash: "SHA-256", length: 256 },
     false,
     ["sign", "verify"]
   );
@@ -104,6 +120,18 @@ export async function hmacVerify(
 export function generateRandomHex(byteCount: number): string {
   const bytes = crypto.getRandomValues(new Uint8Array(byteCount));
   return bufferToHex(bytes.buffer);
+}
+
+// --- Constant-time string comparison ---
+
+/** Constant-time string comparison using XOR to prevent timing side-channels. */
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
 }
 
 // --- Helpers ---

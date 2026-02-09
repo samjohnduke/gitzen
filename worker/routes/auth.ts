@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env, SessionRecord, UserRecord } from "../types.js";
-import { encrypt } from "../lib/crypto.js";
+import { encrypt, timingSafeEqual } from "../lib/crypto.js";
 
 type AuthApp = { Bindings: Env };
 
@@ -40,7 +40,7 @@ auth.get("/callback", async (c) => {
   const stateMatch = cookies.match(/oauth_state=([^;]*)/);
   const storedState = stateMatch ? stateMatch[1] : null;
 
-  if (state !== storedState) {
+  if (!storedState || !timingSafeEqual(state, storedState)) {
     return c.text("Invalid state parameter", 400);
   }
 

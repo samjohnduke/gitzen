@@ -147,13 +147,13 @@ deviceAuth.post("/device/token", async (c) => {
 
   await c.env.CMS_DATA.put(`user:${userId}`, JSON.stringify(userRecord));
 
-  // Generate a CMS API token (all repos, all permissions, 90-day expiry)
+  // Generate a CMS API token (all repos, safe permissions, 30-day expiry)
   const tokenId = generateRandomHex(20);
   const hmac = await hmacSign(tokenId, c.env.API_TOKEN_SECRET);
   const fullToken = `cms_${tokenId}.${hmac}`;
 
-  const ninetyDays = new Date(
-    Date.now() + 90 * 24 * 60 * 60 * 1000
+  const thirtyDays = new Date(
+    Date.now() + 30 * 24 * 60 * 60 * 1000
   ).toISOString();
 
   const apiToken: ApiTokenRecord = {
@@ -164,13 +164,11 @@ deviceAuth.post("/device/token", async (c) => {
     permissions: [
       "content:read",
       "content:write",
-      "content:delete",
-      "content:publish",
       "config:read",
       "repos:read",
     ],
     createdAt: new Date().toISOString(),
-    expiresAt: ninetyDays,
+    expiresAt: thirtyDays,
     lastUsedAt: null,
   };
 
@@ -189,7 +187,7 @@ deviceAuth.post("/device/token", async (c) => {
   return c.json({
     status: "success",
     token: fullToken,
-    expiresAt: ninetyDays,
+    expiresAt: thirtyDays,
     username: user.login,
   });
 });

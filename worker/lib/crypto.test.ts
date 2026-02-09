@@ -5,6 +5,7 @@ import {
   hmacSign,
   hmacVerify,
   generateRandomHex,
+  timingSafeEqual,
 } from "./crypto";
 
 const TEST_SECRET = "test-secret-key-for-encryption";
@@ -115,7 +116,7 @@ describe("AES-256-GCM encryption", () => {
     expect(a).not.toBe(b);
   });
 
-  it("short secret still works (derived via SHA-256)", async () => {
+  it("short secret still works (derived via HKDF)", async () => {
     const encrypted = await encrypt("data", "x");
     expect(await decrypt(encrypted, "x")).toBe("data");
   });
@@ -124,6 +125,13 @@ describe("AES-256-GCM encryption", () => {
     const longSecret = "s".repeat(1000);
     const encrypted = await encrypt("data", longSecret);
     expect(await decrypt(encrypted, longSecret)).toBe("data");
+  });
+
+  it("old V1 ciphertext (SHA-256 derived key) does NOT decrypt with HKDF key", async () => {
+    // A ciphertext produced by the old SHA-256-based deriveKey would use a
+    // different derived key than HKDF. This verifies the migration is breaking.
+    const v1Ciphertext = "dGVzdA==.dGVzdA==";
+    await expect(decrypt(v1Ciphertext, TEST_SECRET)).rejects.toThrow();
   });
 });
 
@@ -195,6 +203,26 @@ describe("HMAC-SHA256 signing", () => {
     const sig = await hmacSign("", HMAC_SECRET);
     expect(sig).toMatch(/^[0-9a-f]{64}$/);
     expect(await hmacVerify("", sig, HMAC_SECRET)).toBe(true);
+  });
+});
+
+describe("timingSafeEqual", () => {
+  it("returns true for matching strings", () => {
+    expect(timingSafeEqual("abc", "abc")).toBe(true);
+    expect(timingSafeEqual("", "")).toBe(true);
+    expect(timingSafeEqual("a-long-csrf-token-value", "a-long-csrf-token-value")).toBe(true);
+  });
+
+  it("returns false for non-matching strings of same length", () => {
+    expect(timingSafeEqual("abc", "abd")).toBe(false);
+    expect(timingSafeEqual("aaa", "bbb")).toBe(false);
+  });
+
+  it("returns false for different-length strings", () => {
+    expect(timingSafeEqual("abc", "ab")).toBe(false);
+    expect(timingSafeEqual("a", "ab")).toBe(false);
+    expect(timingSafeEqual("", "a")).toBe(false);
+    expect(timingSafeEqual("a", "")).toBe(false);
   });
 });
 

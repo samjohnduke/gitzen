@@ -13,7 +13,7 @@ type ReposApp = {
 const repos = new Hono<ReposApp>();
 
 const REPOS_KEY = "connected_repos";
-const REPO_RE = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
+const REPO_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 async function getRepos(kv: KVNamespace): Promise<RepoConnection[]> {
   return (await kv.get<RepoConnection[]>(REPOS_KEY, "json")) ?? [];
@@ -92,8 +92,10 @@ repos.delete("/:repo", requireSession(), async (c) => {
     return c.json({ error: "Repo not found" }, 404);
   }
 
-  // Only allow deleting repos you added (or legacy entries with no owner)
-  if (target.addedBy && target.addedBy !== c.var.auth.userId) {
+  if (!target.addedBy) {
+    return c.json({ error: "Cannot remove legacy repo entry without owner" }, 403);
+  }
+  if (target.addedBy !== c.var.auth.userId) {
     return c.json({ error: "You can only disconnect repos you connected" }, 403);
   }
 

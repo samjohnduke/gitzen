@@ -60,11 +60,20 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   let auth: AuthContext;
 
   if ("githubToken" in parsed) {
-    // Legacy session — lazily migrate
+    // Legacy session — lazily migrate with new session ID
+    const newSessionId = crypto.randomUUID();
     auth = await migrateLegacySession(
       sessionId,
+      newSessionId,
       parsed as LegacySessionData,
       c.env
+    );
+    // Set new session cookie — old session is deleted inside migrateLegacySession
+    const isLocal = new URL(c.req.url).hostname === "localhost";
+    const sec = isLocal ? "" : " Secure;";
+    c.header(
+      "Set-Cookie",
+      `cms_session=${newSessionId}; Path=/; HttpOnly; SameSite=Lax;${sec} Max-Age=${60 * 60 * 24 * 30}`
     );
   } else {
     // New-format session
@@ -72,14 +81,14 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
 
     if (new Date(session.expiresAt) < new Date()) {
       await c.env.SESSIONS.delete(sessionId);
-      return c.json({ error: "Session expired" }, 401);
+      return c.json({ error: "Unauthorized" }, 401);
     }
 
     const userRecord = await c.env.CMS_DATA.get<UserRecord>(
       `user:${session.userId}`,
       "json"
     );
-    if (!userRecord) return c.json({ error: "User not found" }, 401);
+    if (!userRecord) return c.json({ error: "Unauthorized" }, 401);
 
     let githubToken = await decrypt(
       userRecord.encryptedGithubToken,
@@ -177,7 +186,8 @@ async function resolveApiToken(
 // --- Legacy session migration ---
 
 async function migrateLegacySession(
-  sessionId: string,
+  oldSessionId: string,
+  newSessionId: string,
   legacy: LegacySessionData,
   env: Env
 ): Promise<AuthContext> {
@@ -226,7 +236,9 @@ async function migrateLegacySession(
 
   await env.CMS_DATA.put(`user:${userId}`, JSON.stringify(userRecord));
 
-  // Rewrite session to new format
+  // Delete old session and create new one with fresh ID
+  await env.SESSIONS.delete(oldSessionId);
+
   const expiresAt = new Date(
     Date.now() + 30 * 24 * 60 * 60 * 1000
   ).toISOString();
@@ -236,7 +248,7 @@ async function migrateLegacySession(
     expiresAt,
   };
 
-  await env.SESSIONS.put(sessionId, JSON.stringify(newSession), {
+  await env.SESSIONS.put(newSessionId, JSON.stringify(newSession), {
     expirationTtl: 60 * 60 * 24 * 30,
   });
 
@@ -322,7 +334,8 @@ async function maybeRefreshToken(
     ).catch(() => {});
 
     return data.access_token;
-  } catch {
+  } catch (e) {
+    console.error("Token refresh failed:", e);
     return currentToken;
   }
 }

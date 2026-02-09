@@ -196,7 +196,7 @@ describe("auth middleware", () => {
       );
       expect(res.status).toBe(401);
       const body = await res.json<{ error: string }>();
-      expect(body.error).toBe("User not found");
+      expect(body.error).toBe("Unauthorized");
     });
 
     it("handles session cookie among multiple cookies", async () => {

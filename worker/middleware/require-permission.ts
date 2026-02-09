@@ -19,7 +19,8 @@ export function requirePermission(...permissions: Permission[]) {
   return createMiddleware<PermEnv>(async (c, next) => {
     const auth = c.var.auth;
 
-    // Session auth has full access
+    // Session auth has full access — intentional design decision: session users
+    // are the repo owner and have already authenticated via GitHub OAuth.
     if (auth.authMethod === "session") return next();
 
     // API tokens must have all required permissions
@@ -45,6 +46,7 @@ export function requireRepoAccess() {
   return createMiddleware<PermEnv>(async (c, next) => {
     const auth = c.var.auth;
 
+    // Session auth bypasses repo scope — same rationale as permission bypass above.
     if (auth.authMethod === "session") return next();
 
     const repos = auth.tokenScope?.repos ?? [];

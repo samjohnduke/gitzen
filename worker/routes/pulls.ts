@@ -15,7 +15,7 @@ const pulls = new Hono<PullsApp>();
 
 function parsePrNumber(raw: string): number | null {
   const n = parseInt(raw, 10);
-  return isNaN(n) ? null : n;
+  return isNaN(n) || n <= 0 ? null : n;
 }
 
 // Create PR from existing branch
@@ -31,6 +31,14 @@ pulls.post(
       title: string;
       body?: string;
     }>();
+
+    if (!branch || !/^[\w][\w.\/-]{0,254}$/.test(branch)) {
+      return c.json({ error: "Invalid branch name" }, 400);
+    }
+
+    if (!title?.trim()) {
+      return c.json({ error: "PR title is required" }, 400);
+    }
 
     const defaultBranch = await github.getDefaultBranch(repo);
     const pr = await github.createPullRequest(
@@ -423,6 +431,10 @@ pulls.post(
 
     if (!body?.trim()) {
       return c.json({ error: "Comment body is required" }, 400);
+    }
+
+    if (body.length > 65536) {
+      return c.json({ error: "Comment body too long (max 65536 chars)" }, 400);
     }
 
     const gc = await github.createIssueComment(repo, number, body);

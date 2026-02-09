@@ -10,7 +10,7 @@ export function parseFrontmatter(raw: string): ParsedContent {
   if (!match) {
     return { frontmatter: {}, body: raw };
   }
-  const frontmatter = (yaml.load(match[1]) as Record<string, unknown>) ?? {};
+  const frontmatter = (yaml.load(match[1], { schema: yaml.DEFAULT_SCHEMA }) as Record<string, unknown>) ?? {};
   const body = match[2];
   return { frontmatter, body };
 }
