@@ -46,18 +46,25 @@ export class GitHubClient {
 
   async getFile(
     repo: string,
-    path: string
+    path: string,
+    branch?: string
   ): Promise<{ content: string; sha: string }> {
+    const ref = branch ? `?ref=${encodeURIComponent(branch)}` : "";
     const data = await this.request<GitHubFileResponse>(
-      `/repos/${repo}/contents/${path}`
+      `/repos/${repo}/contents/${path}${ref}`
     );
     const content = atob(data.content.replace(/\n/g, ""));
     return { content, sha: data.sha };
   }
 
-  async listDirectory(repo: string, path: string): Promise<GitHubDirectoryItem[]> {
+  async listDirectory(
+    repo: string,
+    path: string,
+    branch?: string
+  ): Promise<GitHubDirectoryItem[]> {
+    const ref = branch ? `?ref=${encodeURIComponent(branch)}` : "";
     return this.request<GitHubDirectoryItem[]>(
-      `/repos/${repo}/contents/${path}`
+      `/repos/${repo}/contents/${path}${ref}`
     );
   }
 
@@ -66,15 +73,15 @@ export class GitHubClient {
     path: string,
     content: string,
     message: string,
-    sha?: string
+    sha?: string,
+    branch?: string
   ): Promise<{ sha: string }> {
     const body: Record<string, unknown> = {
       message,
       content: btoa(unescape(encodeURIComponent(content))),
     };
-    if (sha) {
-      body.sha = sha;
-    }
+    if (sha) body.sha = sha;
+    if (branch) body.branch = branch;
 
     const data = await this.request<{ content: { sha: string } }>(
       `/repos/${repo}/contents/${path}`,
@@ -90,11 +97,200 @@ export class GitHubClient {
     repo: string,
     path: string,
     message: string,
-    sha: string
+    sha: string,
+    branch?: string
   ): Promise<void> {
+    const body: Record<string, unknown> = { message, sha };
+    if (branch) body.branch = branch;
     await this.request(`/repos/${repo}/contents/${path}`, {
       method: "DELETE",
-      body: JSON.stringify({ message, sha }),
+      body: JSON.stringify(body),
+    });
+  }
+
+  // --- Branch operations ---
+
+  async getBranchSha(
+    repo: string,
+    branch: string
+  ): Promise<string | null> {
+    try {
+      const data = await this.request<{ object: { sha: string } }>(
+        `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`
+      );
+      return data.object.sha;
+    } catch (e) {
+      if (e instanceof GitHubApiError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async getDefaultBranch(repo: string): Promise<string> {
+    const data = await this.request<{ default_branch: string }>(
+      `/repos/${repo}`
+    );
+    return data.default_branch;
+  }
+
+  async createBranch(
+    repo: string,
+    branch: string,
+    fromSha: string
+  ): Promise<void> {
+    await this.request(`/repos/${repo}/git/refs`, {
+      method: "POST",
+      body: JSON.stringify({
+        ref: `refs/heads/${branch}`,
+        sha: fromSha,
+      }),
+    });
+  }
+
+  async deleteBranch(repo: string, branch: string): Promise<void> {
+    await this.request(
+      `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  // --- Pull Request operations ---
+
+  async createPullRequest(
+    repo: string,
+    title: string,
+    head: string,
+    base: string,
+    body: string
+  ): Promise<{ number: number; html_url: string }> {
+    return this.request(`/repos/${repo}/pulls`, {
+      method: "POST",
+      body: JSON.stringify({ title, head, base, body }),
+    });
+  }
+
+  async listPullRequests(
+    repo: string,
+    state: "open" | "closed" | "all" = "open"
+  ): Promise<
+    Array<{
+      number: number;
+      title: string;
+      state: "open" | "closed";
+      merged_at: string | null;
+      head: { ref: string; sha: string };
+      base: { ref: string; sha: string };
+      created_at: string;
+      updated_at: string;
+      body: string;
+      html_url: string;
+      mergeable: boolean | null;
+      user: { login: string };
+    }>
+  > {
+    return this.request(
+      `/repos/${repo}/pulls?state=${state}&per_page=100`
+    );
+  }
+
+  async getPullRequest(
+    repo: string,
+    number: number
+  ): Promise<{
+    number: number;
+    title: string;
+    state: "open" | "closed";
+    merged_at: string | null;
+    head: { ref: string; sha: string };
+    base: { ref: string; sha: string };
+    created_at: string;
+    updated_at: string;
+    body: string;
+    html_url: string;
+    mergeable: boolean | null;
+    user: { login: string };
+  }> {
+    return this.request(`/repos/${repo}/pulls/${number}`);
+  }
+
+  async mergePullRequest(
+    repo: string,
+    number: number,
+    commitTitle: string,
+    commitMessage: string
+  ): Promise<{ sha: string; merged: boolean }> {
+    return this.request(`/repos/${repo}/pulls/${number}/merge`, {
+      method: "PUT",
+      body: JSON.stringify({
+        commit_title: commitTitle,
+        commit_message: commitMessage,
+        merge_method: "squash",
+      }),
+    });
+  }
+
+  async updatePullRequestBranch(
+    repo: string,
+    number: number
+  ): Promise<void> {
+    await this.request(
+      `/repos/${repo}/pulls/${number}/update-branch`,
+      { method: "PUT", body: JSON.stringify({}) }
+    );
+  }
+
+  async closePullRequest(repo: string, number: number): Promise<void> {
+    await this.request(`/repos/${repo}/pulls/${number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "closed" }),
+    });
+  }
+
+  async compareCommits(
+    repo: string,
+    base: string,
+    head: string
+  ): Promise<{
+    files: Array<{
+      filename: string;
+      status: "added" | "modified" | "removed" | "renamed";
+    }>;
+  }> {
+    return this.request(
+      `/repos/${repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`
+    );
+  }
+
+  // --- Issue/PR comment operations ---
+
+  async listIssueComments(
+    repo: string,
+    issueNumber: number
+  ): Promise<
+    Array<{
+      id: number;
+      body: string;
+      user: { login: string; avatar_url: string };
+      created_at: string;
+    }>
+  > {
+    return this.request(
+      `/repos/${repo}/issues/${issueNumber}/comments?per_page=100`
+    );
+  }
+
+  async createIssueComment(
+    repo: string,
+    issueNumber: number,
+    body: string
+  ): Promise<{
+    id: number;
+    body: string;
+    user: { login: string; avatar_url: string };
+    created_at: string;
+  }> {
+    return this.request(`/repos/${repo}/issues/${issueNumber}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
     });
   }
 

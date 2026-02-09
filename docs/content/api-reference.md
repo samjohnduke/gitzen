@@ -34,6 +34,14 @@ Repository names contain a `/` (e.g., `owner/repo-name`), which must be URL-enco
 | GET | `/api/repos/:repo/content/:collection/:slug` | `content:read` | Get content item |
 | PUT | `/api/repos/:repo/content/:collection/:slug` | `content:write` | Create/update content |
 | DELETE | `/api/repos/:repo/content/:collection/:slug` | `content:delete` | Delete content |
+| POST | `/api/repos/:repo/pulls` | `content:write` | Create pull request |
+| GET | `/api/repos/:repo/pulls` | `content:read` | List open CMS PRs |
+| GET | `/api/repos/:repo/pulls/:number` | `content:read` | Get PR detail |
+| GET | `/api/repos/:repo/pulls/:number/diff` | `content:read` | Get structured content diff |
+| PUT | `/api/repos/:repo/pulls/:number/merge` | `content:publish` | Squash merge PR |
+| PUT | `/api/repos/:repo/pulls/:number/update` | `content:write` | Update PR branch |
+| POST | `/api/repos/:repo/pulls/:number/rebase` | `content:write` | Force rebase PR branch |
+| DELETE | `/api/repos/:repo/pulls/:number` | `content:write` | Close PR + delete branch |
 | GET | `/api/github/repos` | Any auth | List GitHub repos |
 | POST | `/api/tokens` | Session | Create API token |
 | GET | `/api/tokens` | Session | List API tokens |
@@ -185,11 +193,12 @@ Returns all markdown files in the collection directory with parsed frontmatter.
 
 ```
 GET /api/repos/:repo/content/:collection/:slug
+GET /api/repos/:repo/content/:collection/:slug?branch=cms/blog/my-post
 ```
 
 **Permission:** `content:read`
 
-Returns the full content item including the markdown body.
+Returns the full content item including the markdown body. If a `cms/{collection}/{slug}` branch exists, the response automatically includes `branch` and `prNumber` fields. Use the `?branch=` query parameter to explicitly read from a specific branch.
 
 ```json
 {
@@ -200,9 +209,13 @@ Returns the full content item including the markdown body.
     "title": "Hello World",
     "date": "2025-01-15"
   },
-  "body": "This is my first blog post.\n\n## Introduction\n\nWelcome!"
+  "body": "This is my first blog post.\n\n## Introduction\n\nWelcome!",
+  "branch": "cms/blog/hello-world",
+  "prNumber": 42
 }
 ```
+
+The `branch` and `prNumber` fields are only present when the item has an active draft branch with an open PR.
 
 ### Create or update content
 
@@ -212,7 +225,7 @@ PUT /api/repos/:repo/content/:collection/:slug
 
 **Permission:** `content:write`
 
-To create a new item, omit `sha`. To update an existing item, include the current `sha` (for conflict detection).
+To create a new item, omit `sha`. To update an existing item, include the current `sha` (for conflict detection). Set `mode` to `"branch"` to save to a draft branch instead of the default branch.
 
 ```json
 {
@@ -222,18 +235,29 @@ To create a new item, omit `sha`. To update an existing item, include the curren
     "draft": false
   },
   "body": "This is my first blog post.",
-  "sha": "abc123def456..."
+  "sha": "abc123def456...",
+  "mode": "branch"
 }
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `frontmatter` | `object` | — | Frontmatter fields |
+| `body` | `string` | — | Markdown body content |
+| `sha` | `string` | — | Current file SHA (required for updates, omit for new files) |
+| `mode` | `"direct"` or `"branch"` | `"direct"` | Save mode: `"direct"` commits to main, `"branch"` commits to `cms/{collection}/{slug}` |
 
 **Response:**
 
 ```json
 {
   "sha": "new789sha...",
-  "path": "src/content/blog/hello-world.md"
+  "path": "src/content/blog/hello-world.md",
+  "branch": "cms/blog/hello-world"
 }
 ```
+
+The `branch` field is only present when `mode` is `"branch"`. When saving to a branch, the CMS auto-creates the branch from main's HEAD if it doesn't exist.
 
 **Errors:**
 
@@ -249,6 +273,199 @@ DELETE /api/repos/:repo/content/:collection/:slug?sha=abc123...
 **Permission:** `content:delete`
 
 The `sha` query parameter is required to prevent accidental deletion of modified content.
+
+```json
+{ "ok": true }
+```
+
+## Pull Requests
+
+The CMS uses GitHub pull requests for draft content workflow. These endpoints manage CMS-created PRs (branches matching `cms/*`).
+
+### Create a pull request
+
+```
+POST /api/repos/:repo/pulls
+```
+
+**Permission:** `content:write`
+
+Creates a PR from an existing CMS branch. Typically called automatically after the first branch save.
+
+```json
+{
+  "branch": "cms/blog/my-post",
+  "title": "Draft: My New Post",
+  "body": "Content created via CMS"
+}
+```
+
+**Response:**
+
+```json
+{
+  "number": 42,
+  "htmlUrl": "https://github.com/owner/repo/pull/42",
+  "previewUrl": "https://cms-blog-my-post.my-site.pages.dev"
+}
+```
+
+### List open CMS PRs
+
+```
+GET /api/repos/:repo/pulls
+```
+
+**Permission:** `content:read`
+
+Returns all open PRs with `cms/*` branches, enriched with collection/slug info and preview URLs.
+
+```json
+[
+  {
+    "number": 42,
+    "title": "Draft: My New Post",
+    "branch": "cms/blog/my-post",
+    "state": "open",
+    "merged": false,
+    "createdAt": "2025-01-15T10:30:00.000Z",
+    "updatedAt": "2025-01-15T11:00:00.000Z",
+    "collection": "blog",
+    "slug": "my-post",
+    "previewUrl": "https://cms-blog-my-post.my-site.pages.dev",
+    "author": "samducker"
+  }
+]
+```
+
+### Get PR detail
+
+```
+GET /api/repos/:repo/pulls/:number
+```
+
+**Permission:** `content:read`
+
+Returns full PR detail including mergeable status.
+
+```json
+{
+  "number": 42,
+  "title": "Draft: My New Post",
+  "branch": "cms/blog/my-post",
+  "state": "open",
+  "merged": false,
+  "mergeable": true,
+  "headSha": "abc123...",
+  "baseSha": "def456...",
+  "htmlUrl": "https://github.com/owner/repo/pull/42",
+  "body": "Content created via CMS",
+  "collection": "blog",
+  "slug": "my-post",
+  "previewUrl": "https://cms-blog-my-post.my-site.pages.dev",
+  "author": "samducker",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "updatedAt": "2025-01-15T11:00:00.000Z"
+}
+```
+
+### Get structured content diff
+
+```
+GET /api/repos/:repo/pulls/:number/diff
+```
+
+**Permission:** `content:read`
+
+Returns a structured diff comparing the PR branch to the base branch. Frontmatter fields are diffed individually, and the body is returned as old/new text for client-side word-level diffing.
+
+```json
+[
+  {
+    "collection": "blog",
+    "slug": "my-post",
+    "type": "modified",
+    "frontmatter": {
+      "fields": [
+        { "name": "title", "oldValue": "My Post", "newValue": "My Updated Post", "changed": true },
+        { "name": "date", "oldValue": "2025-01-15", "newValue": "2025-01-15", "changed": false }
+      ]
+    },
+    "body": {
+      "oldBody": "Original content...",
+      "newBody": "Updated content..."
+    }
+  }
+]
+```
+
+### Squash merge PR
+
+```
+PUT /api/repos/:repo/pulls/:number/merge
+```
+
+**Permission:** `content:publish`
+
+Squash merges the PR and deletes the branch.
+
+**Response (success):**
+
+```json
+{ "sha": "merged123...", "merged": true }
+```
+
+**Response (conflict):** `409`
+
+```json
+{ "merged": false, "reason": "conflicts" }
+```
+
+### Update PR branch
+
+```
+PUT /api/repos/:repo/pulls/:number/update
+```
+
+**Permission:** `content:write`
+
+Merges the default branch into the PR branch (equivalent to GitHub's "Update branch" button).
+
+**Response (success):**
+
+```json
+{ "ok": true }
+```
+
+**Response (conflict):** `409`
+
+```json
+{ "ok": false, "reason": "conflicts" }
+```
+
+### Force rebase PR branch
+
+```
+POST /api/repos/:repo/pulls/:number/rebase
+```
+
+**Permission:** `content:write`
+
+Recreates the branch from the latest default branch HEAD and re-commits the file content. Use this when "Update branch" fails due to conflicts. Safe for CMS branches since they're single-file edits and PRs are squash-merged.
+
+```json
+{ "ok": true }
+```
+
+### Close PR + delete branch
+
+```
+DELETE /api/repos/:repo/pulls/:number
+```
+
+**Permission:** `content:write`
+
+Closes the PR without merging and deletes the branch.
 
 ```json
 { "ok": true }

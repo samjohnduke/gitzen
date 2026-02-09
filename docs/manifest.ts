@@ -19,6 +19,7 @@ export interface NavItem {
 export const docsNav: NavItem[] = [
   { title: "Getting Started", slug: "getting-started" },
   { title: "Configuration", slug: "configuration" },
+  { title: "Content Workflow", slug: "workflow" },
   { title: "Authentication", slug: "authentication" },
   { title: "API Reference", slug: "api-reference" },
   {

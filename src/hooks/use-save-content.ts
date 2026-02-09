@@ -19,8 +19,13 @@ export function useSaveContent() {
       repo: string,
       collection: string,
       slug: string,
-      data: { frontmatter: Record<string, unknown>; body: string; sha?: string }
-    ): Promise<{ sha: string; path: string } | null> => {
+      data: {
+        frontmatter: Record<string, unknown>;
+        body: string;
+        sha?: string;
+        mode?: "direct" | "branch";
+      }
+    ): Promise<{ sha: string; path: string; branch?: string } | null> => {
       setState((s) => ({ ...s, saving: true, error: null }));
       try {
         const result = await api.saveContent(repo, collection, slug, data);

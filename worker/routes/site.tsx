@@ -10,6 +10,7 @@ import type { DocModule } from "../../docs/manifest.js";
 // Import all docs at build time — Vite transforms .md → { html, meta, toc }
 import gettingStarted from "../../docs/content/getting-started.md";
 import configuration from "../../docs/content/configuration.md";
+import workflow from "../../docs/content/workflow.md";
 import authentication from "../../docs/content/authentication.md";
 import apiReference from "../../docs/content/api-reference.md";
 import astro from "../../docs/content/integrations/astro.md";
@@ -21,6 +22,7 @@ import eleventy from "../../docs/content/integrations/eleventy.md";
 const docMap: Record<string, DocModule> = {
   "getting-started": gettingStarted,
   configuration: configuration,
+  workflow: workflow,
   authentication: authentication,
   "api-reference": apiReference,
   "integrations/astro": astro,

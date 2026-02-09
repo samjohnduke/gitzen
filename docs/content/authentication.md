@@ -52,13 +52,14 @@ Tokens must specify at least one permission. Available permissions:
 
 | Permission | Description |
 |-----------|-------------|
-| `content:read` | List and read content items |
-| `content:write` | Create and update content items |
+| `content:read` | List and read content items, view pull requests and diffs |
+| `content:write` | Create and update content items, create/close PRs, update branches |
 | `content:delete` | Delete content items |
+| `content:publish` | Merge (squash) pull requests into the default branch |
 | `config:read` | Read `cms.config.json` from repos |
 | `repos:read` | List connected repositories |
 
-A typical build token only needs `content:read` and `config:read`.
+A typical build token only needs `content:read` and `config:read`. A CI token that auto-publishes approved content needs `content:publish`.
 
 ### Repo scoping
 

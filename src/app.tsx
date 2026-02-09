@@ -6,6 +6,8 @@ import { LoginPage } from "./components/login-page";
 import { ContentList } from "./components/content-list";
 import { ContentEditor } from "./components/content-editor";
 import { TokenManager } from "./components/token-manager";
+import { ReviewsList } from "./components/reviews-list";
+import { ReviewDetail } from "./components/review-detail";
 
 export function App() {
   const { authenticated, loading, username, logout } = useAuth();
@@ -40,6 +42,8 @@ export function App() {
           <Route element={<Layout username={username} onLogout={logout} />}>
             <Route path="/" element={<EmptyState />} />
             <Route path="/settings/tokens" element={<TokenManager />} />
+            <Route path="/:repo/reviews" element={<ReviewsList />} />
+            <Route path="/:repo/reviews/:number" element={<ReviewDetail />} />
             <Route
               path="/:repo/:collection"
               element={<ContentList />}

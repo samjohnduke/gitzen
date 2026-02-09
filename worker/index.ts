@@ -9,6 +9,7 @@ import configRoutes from "./routes/config.js";
 import contentRoutes from "./routes/content.js";
 import githubRoutes from "./routes/github.js";
 import tokensRoutes from "./routes/tokens.js";
+import pullsRoutes from "./routes/pulls.js";
 import siteRoutes from "./routes/site.jsx";
 
 type AppEnv = {
@@ -78,6 +79,7 @@ app.route("/api/github", githubRoutes);
 app.route("/api/repos", reposRoutes);
 app.route("/api/repos", configRoutes);
 app.route("/api/repos", contentRoutes);
+app.route("/api/repos", pullsRoutes);
 app.route("/api/tokens", tokensRoutes);
 
 // SPA fallback — serve index.html for /app/* routes only

@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import type { Env, AuthContext } from "../types.js";
 import type { RepoConnection } from "../../shared/types.js";
-import { GitHubClient } from "../lib/github.js";
+import { GitHubClient, GitHubApiError } from "../lib/github.js";
 import { requirePermission } from "../middleware/require-permission.js";
+import { GITHUB_APP_INSTALL_URL } from "../../shared/constants.js";
 
 type ReposApp = {
   Bindings: Env;
@@ -40,7 +41,13 @@ repos.post("/", async (c) => {
   const github = new GitHubClient(c.var.auth.githubToken);
   try {
     await github.getFile(fullName, "cms.config.json");
-  } catch {
+  } catch (e) {
+    if (e instanceof GitHubApiError && e.status === 403) {
+      return c.json(
+        { error: `GitHub App not installed on this repo. Install it here: ${GITHUB_APP_INSTALL_URL}` },
+        403
+      );
+    }
     return c.json(
       { error: "No cms.config.json found in repo root" },
       400

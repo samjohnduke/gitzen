@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useContentList } from "../hooks/use-content-list";
 import { useConfig } from "../hooks/use-config";
+import { api } from "../api/client";
+import type { PullRequestSummary } from "@shared/types";
 
 export function ContentList() {
   const params = useParams();
@@ -10,6 +13,21 @@ export function ContentList() {
 
   const { items, loading, error } = useContentList(repo, collection);
   const { config } = useConfig(repo);
+  const [openPrs, setOpenPrs] = useState<PullRequestSummary[]>([]);
+
+  // Fetch open PRs in parallel with content list
+  useEffect(() => {
+    if (!repo) return;
+    api.listPullRequests(repo).then(setOpenPrs).catch(() => {});
+  }, [repo]);
+
+  // Map slug → PR for the current collection
+  const prBySlug = new Map<string, PullRequestSummary>();
+  for (const pr of openPrs) {
+    if (pr.collection === collection) {
+      prBySlug.set(pr.slug, pr);
+    }
+  }
 
   const collectionConfig = config?.collections[collection ?? ""];
   const label = collectionConfig?.label ?? collection ?? "";
@@ -131,7 +149,7 @@ export function ContentList() {
                   <td style={{ ...tdStyle, color: "var(--color-text-secondary)", fontSize: 13 }}>
                     {String(item.frontmatter.date ?? "")}
                   </td>
-                  <td style={tdStyle}>
+                  <td style={{ ...tdStyle, display: "flex", gap: 4, alignItems: "center" }}>
                     {item.frontmatter.draft ? (
                       <span style={{
                         fontSize: 11,
@@ -155,6 +173,18 @@ export function ContentList() {
                         Published
                       </span>
                     )}
+                    {prBySlug.has(item.slug) ? (
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        padding: "2px 8px",
+                        borderRadius: 99,
+                        background: "var(--color-accent-subtle)",
+                        color: "var(--color-accent)",
+                      }}>
+                        PR #{prBySlug.get(item.slug)!.number}
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}

@@ -4,6 +4,8 @@ import type { CmsConfig, ContentItem } from "../../shared/types.js";
 import { GitHubClient, GitHubApiError } from "../lib/github.js";
 import { parseFrontmatter, serializeFrontmatter } from "../../shared/frontmatter.js";
 import { requirePermission, requireRepoAccess } from "../middleware/require-permission.js";
+import { branchName } from "../../shared/branch.js";
+import { GITHUB_APP_INSTALL_URL } from "../../shared/constants.js";
 
 type ContentApp = {
   Bindings: Env;
@@ -79,21 +81,69 @@ content.get(
       return c.json({ error: "Collection not found" }, 404);
     }
 
+    // Support explicit ?branch= param, or auto-detect cms branch
+    const queryBranch = c.req.query("branch") ?? null;
+    const cmsBranch = branchName(collection, slug);
+
+    // Determine which branch to read from
+    let activeBranch: string | null = queryBranch;
+    let prNumber: number | null = null;
+
+    if (!activeBranch) {
+      // Check if a cms branch exists for this item
+      const branchSha = await github.getBranchSha(repo, cmsBranch);
+      if (branchSha) {
+        activeBranch = cmsBranch;
+        // Find open PR for this branch
+        try {
+          const prs = await github.listPullRequests(repo, "open");
+          const match = prs.find((pr) => pr.head.ref === cmsBranch);
+          if (match) prNumber = match.number;
+        } catch {
+          // PR listing failed — not critical
+        }
+      }
+    }
+
     const basePath = `${collectionConfig.directory}/${slug}`;
     for (const ext of [".md", ".mdx"]) {
       try {
-        const { content: raw, sha } = await github.getFile(repo, `${basePath}${ext}`);
+        const { content: raw, sha } = await github.getFile(
+          repo,
+          `${basePath}${ext}`,
+          activeBranch ?? undefined
+        );
         const { frontmatter, body } = parseFrontmatter(raw);
-        return c.json({
+        const result: ContentItem = {
           slug,
           path: `${basePath}${ext}`,
           sha,
           frontmatter,
           body,
-        } satisfies ContentItem);
+        };
+        if (activeBranch) result.branch = activeBranch;
+        if (prNumber) result.prNumber = prNumber;
+        return c.json(result);
       } catch (e) {
         if (e instanceof GitHubApiError && e.status === 404) continue;
         throw e;
+      }
+    }
+
+    // If we were reading from a branch and got 404, try main
+    if (activeBranch) {
+      for (const ext of [".md", ".mdx"]) {
+        try {
+          const { content: raw, sha } = await github.getFile(repo, `${basePath}${ext}`);
+          const { frontmatter, body } = parseFrontmatter(raw);
+          const result: ContentItem = { slug, path: `${basePath}${ext}`, sha, frontmatter, body };
+          if (activeBranch) result.branch = activeBranch;
+          if (prNumber) result.prNumber = prNumber;
+          return c.json(result);
+        } catch (e) {
+          if (e instanceof GitHubApiError && e.status === 404) continue;
+          throw e;
+        }
       }
     }
 
@@ -120,15 +170,76 @@ content.put(
       return c.json({ error: "Collection not found" }, 404);
     }
 
-    const body = await c.req.json<{
+    const reqBody = await c.req.json<{
       frontmatter: Record<string, unknown>;
       body: string;
       sha?: string;
+      mode?: "direct" | "branch";
     }>();
 
     const filePath = `${collectionConfig.directory}/${slug}.md`;
-    const fileContent = serializeFrontmatter(body.frontmatter, body.body);
-    const message = body.sha
+    const fileContent = serializeFrontmatter(reqBody.frontmatter, reqBody.body);
+
+    if (reqBody.mode === "branch") {
+      // Branch-based save
+      const branch = branchName(collection, slug);
+
+      // Check if branch exists, create if not
+      let branchSha = await github.getBranchSha(repo, branch);
+      if (!branchSha) {
+        const defaultBranch = await github.getDefaultBranch(repo);
+        const mainSha = await github.getBranchSha(repo, defaultBranch);
+        if (!mainSha) {
+          return c.json({ error: "Could not find default branch HEAD" }, 500);
+        }
+        await github.createBranch(repo, branch, mainSha);
+        branchSha = mainSha;
+      }
+
+      // Get file's current SHA on the branch (if updating)
+      let fileSha: string | undefined = reqBody.sha;
+      if (!fileSha) {
+        try {
+          const existing = await github.getFile(repo, filePath, branch);
+          fileSha = existing.sha;
+        } catch {
+          // File doesn't exist on branch — new file
+        }
+      }
+
+      const message = fileSha
+        ? `Update ${collection}/${slug}`
+        : `Create ${collection}/${slug}`;
+
+      try {
+        const result = await github.putFile(
+          repo,
+          filePath,
+          fileContent,
+          message,
+          fileSha,
+          branch
+        );
+        return c.json({ sha: result.sha, path: filePath, branch });
+      } catch (e) {
+        if (e instanceof GitHubApiError && e.status === 403) {
+          return c.json(
+            { error: `GitHub App not installed on this repo. Install it here: ${GITHUB_APP_INSTALL_URL}` },
+            403
+          );
+        }
+        if (e instanceof GitHubApiError && e.status === 409) {
+          return c.json(
+            { error: "Conflict: file was modified. Refresh and try again." },
+            409
+          );
+        }
+        throw e;
+      }
+    }
+
+    // Direct save (default behavior)
+    const message = reqBody.sha
       ? `Update ${collection}/${slug}`
       : `Create ${collection}/${slug}`;
 
@@ -138,10 +249,16 @@ content.put(
         filePath,
         fileContent,
         message,
-        body.sha
+        reqBody.sha
       );
       return c.json({ sha: result.sha, path: filePath });
     } catch (e) {
+      if (e instanceof GitHubApiError && e.status === 403) {
+        return c.json(
+          { error: `GitHub App not installed on this repo. Install it here: ${GITHUB_APP_INSTALL_URL}` },
+          403
+        );
+      }
       if (e instanceof GitHubApiError && e.status === 409) {
         return c.json(
           { error: "Conflict: file was modified outside CMS. Refresh and try again." },

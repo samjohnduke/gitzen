@@ -3,11 +3,14 @@ import { useParams, useNavigate } from "react-router";
 import { useConfig } from "../hooks/use-config";
 import { useContentItem } from "../hooks/use-content-item";
 import { useSaveContent } from "../hooks/use-save-content";
+import { useWorkflow } from "../hooks/use-workflow";
 import { useAutosave, loadDraft, clearDraft } from "../hooks/use-autosave";
 import { TiptapEditor } from "./tiptap-editor";
 import { MetadataSidebar } from "./metadata-sidebar";
 import { SaveIndicator } from "./save-indicator";
+import { SaveButton } from "./save-button";
 import { titleToSlug } from "../lib/slug";
+import { branchName } from "@shared/branch";
 import { api } from "../api/client";
 
 interface ContentEditorProps {
@@ -44,6 +47,10 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
   const [initialized, setInitialized] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [zenMode, setZenMode] = useState(false);
+  const [activeBranch, setActiveBranch] = useState<string | null>(null);
+  const [activePrNumber, setActivePrNumber] = useState<number | null>(null);
+
+  const workflow = useWorkflow(config, collection);
 
   // Draft key
   const draftKey = repo && collection && (slug || "new")
@@ -60,6 +67,8 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
       setCurrentSha(undefined);
       setFrontmatter({});
       setBody("");
+      setActiveBranch(null);
+      setActivePrNumber(null);
     }
   }, [itemKey]);
 
@@ -110,32 +119,57 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
         setBody(item.body ?? "");
       }
       setCurrentSha(item.sha);
+      if (item.branch) setActiveBranch(item.branch);
+      if (item.prNumber) setActivePrNumber(item.prNumber);
       setInitialized(true);
     }
   }, [item, isNew, initialized, fields, draftKey]);
 
   // Save handler
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (modeOverride?: "direct" | "pr") => {
     if (!repo || !collection) return;
 
     const title = String(frontmatter.title ?? "");
     const currentSlug = isNew ? titleToSlug(title) : slug;
     if (!currentSlug) return;
 
+    // If already on a branch, always save to that branch
+    const effectiveMode = activeBranch ? "branch" : (modeOverride ?? workflow.mode);
+
     const result = await save(repo, collection, currentSlug, {
       frontmatter,
       body,
       sha: currentSha,
+      mode: effectiveMode === "pr" || effectiveMode === "branch" ? "branch" : "direct",
     });
 
     if (result) {
       setCurrentSha(result.sha);
       if (draftKey) clearDraft(draftKey);
+
+      // If saved to a branch, auto-create PR if there isn't one yet
+      if (result.branch && !activePrNumber) {
+        try {
+          const pr = await api.createPullRequest(repo, {
+            branch: result.branch,
+            title: `Draft: ${title || currentSlug}`,
+            body: `Content ${isNew ? "created" : "updated"} via CMS`,
+          });
+          setActiveBranch(result.branch);
+          setActivePrNumber(pr.number);
+        } catch {
+          // PR creation failed — branch save still succeeded
+          setActiveBranch(result.branch);
+        }
+      } else if (result.branch) {
+        setActiveBranch(result.branch);
+      }
+
       if (isNew) {
         navigate(`/${encodeURIComponent(repo)}/${collection}/${currentSlug}`, { replace: true });
       }
     }
-  }, [repo, collection, slug, isNew, frontmatter, body, currentSha, save, navigate, draftKey]);
+  }, [repo, collection, slug, isNew, frontmatter, body, currentSha, save, navigate, draftKey, workflow.mode, activeBranch, activePrNumber]);
 
   // Autosave
   useAutosave(draftKey, frontmatter, body, handleSave);
@@ -222,7 +256,7 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={saving}
               style={{
                 padding: "6px 14px",
@@ -362,6 +396,44 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
                 marginLeft: 2,
               }}>⌘ + ?</kbd>
             </button>
+            {activeBranch && workflow.previewUrl(activeBranch) ? (
+              <a
+                href={workflow.previewUrl(activeBranch)!}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  color: "var(--color-accent)",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--color-border)",
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                Preview
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M3 1h6v6M9 1L1 9" />
+                </svg>
+              </a>
+            ) : null}
+            {activePrNumber ? (
+              <button
+                onClick={() => navigate(`/${encodeURIComponent(repo!)}/reviews/${activePrNumber}`)}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: "var(--color-accent)",
+                  background: "var(--color-accent-subtle)",
+                  borderRadius: 99,
+                }}
+              >
+                PR #{activePrNumber}
+              </button>
+            ) : null}
             {!isNew && (
               <button
                 onClick={handleDelete}
@@ -378,21 +450,15 @@ export function ContentEditor({ isNew }: ContentEditorProps) {
                 {deleting ? "Deleting..." : "Delete"}
               </button>
             )}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                padding: "6px 14px",
-                fontSize: 13,
-                fontWeight: 500,
-                background: "var(--color-accent)",
-                color: "white",
-                borderRadius: "var(--radius-md)",
-                opacity: saving ? 0.7 : 1,
-              }}
-            >
-              {saving ? "Saving..." : isNew ? "Publish" : "Save"}
-            </button>
+            <SaveButton
+              mode={activeBranch ? "pr" : workflow.mode}
+              locked={workflow.locked}
+              saving={saving}
+              isNew={!!isNew}
+              prNumber={activePrNumber}
+              onSave={handleSave}
+              onModeChange={workflow.setMode}
+            />
           </div>
         </div>
 

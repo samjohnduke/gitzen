@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useLocation } from "react-router";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api } from "../api/client";
 import { useConfig } from "../hooks/use-config";
-import type { RepoConnection } from "@shared/types";
+import type { RepoConnection, PullRequestSummary } from "@shared/types";
+import { GITHUB_APP_INSTALL_URL } from "@shared/constants";
 
 interface SidebarProps {
   username?: string;
@@ -20,11 +21,21 @@ interface GithubRepo {
 export function Sidebar({ username, onLogout }: SidebarProps) {
   const navigate = useNavigate();
   const params = useParams();
+  const location = useLocation();
   const [repos, setRepos] = useState<RepoConnection[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [openPrCount, setOpenPrCount] = useState(0);
 
   const { config } = useConfig(selectedRepo);
+
+  // Fetch open PR count — re-fetch on navigation (e.g. after merge)
+  useEffect(() => {
+    if (!selectedRepo) return;
+    api.listPullRequests(selectedRepo).then((prs) => {
+      setOpenPrCount(prs.length);
+    }).catch(() => {});
+  }, [selectedRepo, location.pathname]);
 
   // Load repos on mount
   useEffect(() => {
@@ -49,9 +60,8 @@ export function Sidebar({ username, onLogout }: SidebarProps) {
       setRepos(updated);
       setSelectedRepo(fullName);
       setPickerOpen(false);
-    } catch {
-      // repo might not have cms.config.json — error is shown in the picker
-      throw new Error("No cms.config.json found in this repo");
+    } catch (err) {
+      throw err instanceof Error ? err : new Error("Failed to add repo");
     }
   };
 
@@ -197,6 +207,48 @@ export function Sidebar({ username, onLogout }: SidebarProps) {
             {col.label}
           </button>
         ))}
+        {/* Reviews nav */}
+        {selectedRepo && (
+          <>
+            <div style={{ height: 1, background: "var(--color-border-subtle)", margin: "4px 16px" }} />
+            <button
+              onClick={() => navigate(`/${encodeURIComponent(selectedRepo)}/reviews`)}
+              style={{
+                display: "flex",
+                width: "100%",
+                textAlign: "left",
+                padding: "8px 20px",
+                fontSize: 13,
+                fontWeight: location.pathname.includes("/reviews") ? 500 : 400,
+                color: location.pathname.includes("/reviews")
+                  ? "var(--color-accent)"
+                  : "var(--color-text-secondary)",
+                background: location.pathname.includes("/reviews")
+                  ? "var(--color-accent-subtle)"
+                  : "transparent",
+                alignItems: "center",
+                gap: 8,
+                transition: "all 0.1s",
+              }}
+            >
+              Reviews
+              {openPrCount > 0 ? (
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "1px 6px",
+                  borderRadius: 99,
+                  background: "var(--color-accent)",
+                  color: "white",
+                  minWidth: 18,
+                  textAlign: "center",
+                }}>
+                  {openPrCount}
+                </span>
+              ) : null}
+            </button>
+          </>
+        )}
         {!config && selectedRepo && (
           <p style={{ padding: "12px 20px", color: "var(--color-text-muted)", fontSize: 13 }}>
             Loading collections...
@@ -365,6 +417,23 @@ function RepoPicker({ open, onOpenChange, connectedRepos, onAdd }: RepoPickerPro
             }}>cms.config.json</code> in its root.
           </Dialog.Description>
 
+          {/* Install banner */}
+          <div style={{
+            margin: "0 16px 8px",
+            padding: "8px 10px",
+            fontSize: 12,
+            color: "var(--color-text-muted)",
+            background: "var(--color-bg-muted)",
+            borderRadius: "var(--radius-sm)",
+          }}>
+            Don't see your repo? <a
+              href={GITHUB_APP_INSTALL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--color-accent)" }}
+            >Install the GitHub App</a> on it first.
+          </div>
+
           {/* Search */}
           <div style={{
             padding: "0 16px 12px",
@@ -381,7 +450,7 @@ function RepoPicker({ open, onOpenChange, connectedRepos, onAdd }: RepoPickerPro
 
           {error && (
             <p style={{ padding: "0 16px 8px", color: "var(--color-danger)", fontSize: 12 }}>
-              {error}
+              <ErrorWithLink message={error} />
             </p>
           )}
 
@@ -466,5 +535,28 @@ function RepoPicker({ open, onOpenChange, connectedRepos, onAdd }: RepoPickerPro
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+const URL_RE = /(https:\/\/github\.com\/apps\/[^\s]+)/;
+
+function ErrorWithLink({ message }: { message: string }) {
+  const match = message.match(URL_RE);
+  if (!match) return <>{message}</>;
+
+  const idx = match.index!;
+  return (
+    <>
+      {message.slice(0, idx)}
+      <a
+        href={match[1]}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "var(--color-accent)" }}
+      >
+        {match[1]}
+      </a>
+      {message.slice(idx + match[1].length)}
+    </>
   );
 }

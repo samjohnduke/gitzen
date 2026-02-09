@@ -30,6 +30,25 @@ samduke-cms uses a `cms.config.json` file in the root of your repository to defi
 |----------|------|-------------|
 | `name` | `string` | Display name for the site in the CMS UI |
 | `collections` | `object` | Map of collection names to collection configs |
+| `preview` | `object` | *(optional)* Preview deployment configuration |
+
+### Preview configuration
+
+If your site is deployed on Cloudflare Pages, add a `preview` field to enable preview URLs for draft PRs:
+
+```json
+{
+  "name": "My Site",
+  "preview": {
+    "pagesProject": "my-site"
+  },
+  "collections": { ... }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `pagesProject` | `string` | Your Cloudflare Pages project name. Used to construct preview URLs like `https://{branch}.{project}.pages.dev` |
 
 ## Collection config
 
@@ -40,6 +59,27 @@ Each key in `collections` is the collection name (used in API paths). The value 
 | `label` | `string` | Display name in the CMS sidebar |
 | `directory` | `string` | Path to the directory containing markdown files (relative to repo root) |
 | `fields` | `Field[]` | Array of field definitions for frontmatter |
+| `workflow` | `object` | *(optional)* Content workflow settings for this collection |
+
+### Workflow configuration
+
+Control whether saves in a collection go directly to main or create draft PRs:
+
+```json
+{
+  "workflow": {
+    "default": "pr",
+    "locked": false
+  }
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `default` | `"pr"` or `"direct"` | `"direct"` | Default save mode |
+| `locked` | `boolean` | `false` | If `true`, users cannot switch between modes |
+
+When omitted, defaults to `{ "default": "direct", "locked": false }`. See the [Content Workflow guide](/docs/workflow) for details.
 
 ## Field types
 

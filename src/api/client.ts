@@ -73,9 +73,14 @@ export const api = {
     repo: string,
     collection: string,
     slug: string,
-    data: { frontmatter: Record<string, unknown>; body: string; sha?: string }
+    data: {
+      frontmatter: Record<string, unknown>;
+      body: string;
+      sha?: string;
+      mode?: "direct" | "branch";
+    }
   ) =>
-    request<{ sha: string; path: string }>(
+    request<{ sha: string; path: string; branch?: string }>(
       `/repos/${encodeURIComponent(repo)}/content/${collection}/${slug}`,
       { method: "PUT", body: JSON.stringify(data) }
     ),
@@ -83,6 +88,66 @@ export const api = {
   deleteContent: (repo: string, collection: string, slug: string, sha: string) =>
     request<{ ok: boolean }>(
       `/repos/${encodeURIComponent(repo)}/content/${collection}/${slug}?sha=${sha}`,
+      { method: "DELETE" }
+    ),
+
+  // Pull Requests
+  createPullRequest: (
+    repo: string,
+    data: { branch: string; title: string; body?: string }
+  ) =>
+    request<{ number: number; htmlUrl: string; previewUrl: string | null }>(
+      `/repos/${encodeURIComponent(repo)}/pulls`,
+      { method: "POST", body: JSON.stringify(data) }
+    ),
+
+  listPullRequests: (repo: string) =>
+    request<import("@shared/types").PullRequestSummary[]>(
+      `/repos/${encodeURIComponent(repo)}/pulls`
+    ),
+
+  getPullRequest: (repo: string, number: number) =>
+    request<import("@shared/types").PullRequestDetail>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}`
+    ),
+
+  getPullRequestDiff: (repo: string, number: number) =>
+    request<import("@shared/types").ContentDiff[]>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}/diff`
+    ),
+
+  mergePullRequest: (repo: string, number: number) =>
+    request<{ sha: string; merged: boolean } | { merged: false; reason: string }>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}/merge`,
+      { method: "PUT" }
+    ),
+
+  updatePullRequestBranch: (repo: string, number: number) =>
+    request<{ ok: boolean; reason?: string }>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}/update`,
+      { method: "PUT" }
+    ),
+
+  rebasePullRequest: (repo: string, number: number) =>
+    request<{ ok: boolean }>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}/rebase`,
+      { method: "POST" }
+    ),
+
+  listPrComments: (repo: string, number: number) =>
+    request<import("@shared/types").PrComment[]>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}/comments`
+    ),
+
+  createPrComment: (repo: string, number: number, body: string) =>
+    request<import("@shared/types").PrComment>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}/comments`,
+      { method: "POST", body: JSON.stringify({ body }) }
+    ),
+
+  closePullRequest: (repo: string, number: number) =>
+    request<{ ok: boolean }>(
+      `/repos/${encodeURIComponent(repo)}/pulls/${number}`,
       { method: "DELETE" }
     ),
 
