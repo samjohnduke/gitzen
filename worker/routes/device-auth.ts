@@ -165,6 +165,7 @@ deviceAuth.post("/device/token", async (c) => {
       "content:read",
       "content:write",
       "content:delete",
+      "content:publish",
       "config:read",
       "repos:read",
     ],

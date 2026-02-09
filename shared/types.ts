@@ -43,6 +43,7 @@ export interface ContentItem {
 export interface RepoConnection {
   fullName: string; // "owner/repo-name"
   addedAt: string;
+  addedBy?: string; // userId — absent on legacy entries
 }
 
 // --- API Token types ---

@@ -53,7 +53,7 @@ export class GitHubClient {
     const data = await this.request<GitHubFileResponse>(
       `/repos/${repo}/contents/${path}${ref}`
     );
-    const content = atob(data.content.replace(/\n/g, ""));
+    const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ""))));
     return { content, sha: data.sha };
   }
 

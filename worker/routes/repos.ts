@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env, AuthContext } from "../types.js";
 import type { RepoConnection } from "../../shared/types.js";
 import { GitHubClient, GitHubApiError } from "../lib/github.js";
-import { requirePermission } from "../middleware/require-permission.js";
+import { requirePermission, requireSession } from "../middleware/require-permission.js";
 import { GITHUB_APP_INSTALL_URL } from "../../shared/constants.js";
 
 type ReposApp = {
@@ -13,6 +13,7 @@ type ReposApp = {
 const repos = new Hono<ReposApp>();
 
 const REPOS_KEY = "connected_repos";
+const REPO_RE = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
 
 async function getRepos(kv: KVNamespace): Promise<RepoConnection[]> {
   return (await kv.get<RepoConnection[]>(REPOS_KEY, "json")) ?? [];
@@ -28,13 +29,18 @@ repos.get("/", requirePermission("repos:read"), async (c) => {
     return c.json(repoList.filter((r) => allowed.has(r.fullName)));
   }
 
+  // Session users only see repos they added (or legacy entries with no addedBy)
+  if (auth.authMethod === "session") {
+    return c.json(repoList.filter((r) => !r.addedBy || r.addedBy === auth.userId));
+  }
+
   return c.json(repoList);
 });
 
-repos.post("/", async (c) => {
+repos.post("/", requireSession(), async (c) => {
   const { fullName } = await c.req.json<{ fullName: string }>();
 
-  if (!fullName || !fullName.includes("/")) {
+  if (!fullName || !REPO_RE.test(fullName)) {
     return c.json({ error: "Invalid repo format. Use owner/repo-name" }, 400);
   }
 
@@ -55,25 +61,43 @@ repos.post("/", async (c) => {
   }
 
   const repoList = await getRepos(c.env.CMS_DATA);
-  if (repoList.some((r) => r.fullName === fullName)) {
+  const existing = repoList.find((r) => r.fullName === fullName);
+
+  if (existing) {
+    // If legacy entry (no addedBy), claim it for this user
+    if (!existing.addedBy) {
+      existing.addedBy = c.var.auth.userId;
+      await c.env.CMS_DATA.put(REPOS_KEY, JSON.stringify(repoList));
+      return c.json({ ok: true }, 200);
+    }
     return c.json({ error: "Repo already connected" }, 409);
   }
 
-  repoList.push({ fullName, addedAt: new Date().toISOString() });
+  repoList.push({
+    fullName,
+    addedAt: new Date().toISOString(),
+    addedBy: c.var.auth.userId,
+  });
   await c.env.CMS_DATA.put(REPOS_KEY, JSON.stringify(repoList));
 
   return c.json({ ok: true }, 201);
 });
 
-repos.delete("/:repo", async (c) => {
+repos.delete("/:repo", requireSession(), async (c) => {
   const repo = decodeURIComponent(c.req.param("repo"));
   const repoList = await getRepos(c.env.CMS_DATA);
-  const filtered = repoList.filter((r) => r.fullName !== repo);
+  const target = repoList.find((r) => r.fullName === repo);
 
-  if (filtered.length === repoList.length) {
+  if (!target) {
     return c.json({ error: "Repo not found" }, 404);
   }
 
+  // Only allow deleting repos you added (or legacy entries with no owner)
+  if (target.addedBy && target.addedBy !== c.var.auth.userId) {
+    return c.json({ error: "You can only disconnect repos you connected" }, 403);
+  }
+
+  const filtered = repoList.filter((r) => r.fullName !== repo);
   await c.env.CMS_DATA.put(REPOS_KEY, JSON.stringify(filtered));
   return c.json({ ok: true });
 });

@@ -130,8 +130,16 @@ async function resolveApiToken(
   );
   if (!record) return null;
 
-  // Check expiry
+  // Check expiry — clean up expired tokens
   if (record.expiresAt && new Date(record.expiresAt) < new Date()) {
+    await kvData.delete(`api-token:${tokenId}`).catch(() => {});
+    // Best-effort cleanup of user token index
+    const indexKey = `user-tokens:${record.userId}`;
+    const index = await kvData.get<{ tokenIds: string[] }>(indexKey, "json").catch(() => null);
+    if (index) {
+      index.tokenIds = index.tokenIds.filter((id) => id !== tokenId);
+      await kvData.put(indexKey, JSON.stringify(index)).catch(() => {});
+    }
     return null;
   }
 

@@ -14,6 +14,10 @@ type ContentApp = {
 
 const content = new Hono<ContentApp>();
 
+function isValidSlug(slug: string): boolean {
+  return !slug.includes("..") && !slug.includes("/") && !slug.includes("\\");
+}
+
 // List items in a collection
 content.get(
   "/:repo/content/:collection",
@@ -71,6 +75,11 @@ content.get(
     const repo = decodeURIComponent(c.req.param("repo"));
     const collection = c.req.param("collection");
     const slug = c.req.param("slug");
+
+    if (!isValidSlug(slug)) {
+      return c.json({ error: "Invalid slug" }, 400);
+    }
+
     const github = new GitHubClient(c.var.auth.githubToken);
 
     const { content: configRaw } = await github.getFile(repo, "cms.config.json");
@@ -160,6 +169,11 @@ content.put(
     const repo = decodeURIComponent(c.req.param("repo"));
     const collection = c.req.param("collection");
     const slug = c.req.param("slug");
+
+    if (!isValidSlug(slug)) {
+      return c.json({ error: "Invalid slug" }, 400);
+    }
+
     const github = new GitHubClient(c.var.auth.githubToken);
 
     const { content: configRaw } = await github.getFile(repo, "cms.config.json");
@@ -279,6 +293,11 @@ content.delete(
     const repo = decodeURIComponent(c.req.param("repo"));
     const collection = c.req.param("collection");
     const slug = c.req.param("slug");
+
+    if (!isValidSlug(slug)) {
+      return c.json({ error: "Invalid slug" }, 400);
+    }
+
     const github = new GitHubClient(c.var.auth.githubToken);
 
     const { content: configRaw } = await github.getFile(repo, "cms.config.json");

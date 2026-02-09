@@ -62,7 +62,7 @@ site.get("/reference", (c) => {
   <meta name="description" content="Interactive REST API documentation for gitzen" />
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1/dist/browser/standalone.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1/dist/browser/standalone.min.js" integrity="sha384-Yn5fVmbJmOeh0pEiIB8RmshFf7QtAg8Ssh6LLKNxmNh+X8RIPblz+yLjYBGgXxO1" crossorigin="anonymous"></script>
   <script>
     Scalar.createApiReference(document.body, {
       url: '/api/openapi.yaml',

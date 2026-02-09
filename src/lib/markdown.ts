@@ -2,6 +2,7 @@ import { Extension } from "@tiptap/core";
 import { PluginKey, Plugin } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/core";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import TurndownService from "turndown";
 
 // --- Markdown <-> HTML conversion using proper libraries ---
@@ -43,7 +44,7 @@ turndown.addRule("fencedCodeBlock", {
 export function markdownToHtml(md: string): string {
   if (!md || !md.trim()) return "<p></p>";
   const html = marked.parse(md, { async: false }) as string;
-  return html || "<p></p>";
+  return DOMPurify.sanitize(html) || "<p></p>";
 }
 
 export function htmlToMarkdown(html: string): string {

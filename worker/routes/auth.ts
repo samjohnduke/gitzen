@@ -67,15 +67,8 @@ auth.get("/callback", async (c) => {
   };
 
   if (!tokenData.access_token) {
-    console.error("GitHub token exchange failed:", tokenData);
-    return c.json(
-      {
-        error: "Failed to get access token",
-        github_error: tokenData.error,
-        github_error_description: tokenData.error_description,
-      },
-      400
-    );
+    console.error("GitHub token exchange failed:", tokenData.error, tokenData.error_description);
+    return c.json({ error: "Failed to get access token" }, 400);
   }
 
   // Get user info

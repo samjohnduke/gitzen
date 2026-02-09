@@ -13,6 +13,7 @@ const VALID_PERMISSIONS: Permission[] = [
   "content:read",
   "content:write",
   "content:delete",
+  "content:publish",
   "config:read",
   "repos:read",
 ];

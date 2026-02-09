@@ -19,7 +19,27 @@ type AppEnv = {
 
 const app = new Hono<AppEnv>();
 
-app.use("*", cors({ origin: "*", credentials: true }));
+app.use("*", cors({
+  origin: (origin, c) => {
+    const self = new URL(c.req.url).origin;
+    if (origin === self) return origin;
+    if (origin === "http://localhost:8787") return origin;
+    return null;
+  },
+  credentials: true,
+}));
+
+// Security headers
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (new URL(c.req.url).protocol === "https:") {
+    c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+});
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok" }));
@@ -42,15 +62,15 @@ app.get("/api/auth/me", async (c) => {
   const parsed = JSON.parse(raw) as LegacySessionData | SessionRecord;
 
   if ("githubUsername" in parsed) {
-    // Legacy format — still has username inline
-    return c.json({
-      authenticated: true,
-      username: (parsed as LegacySessionData).githubUsername,
-    });
+    // Legacy format — force re-login to migrate
+    return c.json({ authenticated: false });
   }
 
-  // New format — look up username from UserRecord
+  // New format — check expiry
   const session = parsed as SessionRecord;
+  if (new Date(session.expiresAt) < new Date()) {
+    return c.json({ authenticated: false });
+  }
   const userRecord = await c.env.CMS_DATA.get<UserRecord>(
     `user:${session.userId}`,
     "json"
