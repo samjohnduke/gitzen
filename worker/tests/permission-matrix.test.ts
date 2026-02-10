@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Hono } from "hono";
-import type { Env, AuthContext } from "../types";
+import type { AuthContext } from "../types";
 import type { Permission } from "../../shared/types";
 import {
   requirePermission,
@@ -14,7 +14,6 @@ import {
  */
 
 type TestApp = {
-  Bindings: Env;
   Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
 };
 

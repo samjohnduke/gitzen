@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { Env, AuthContext, SessionRecord, LegacySessionData, UserRecord } from "./types.js";
+import * as Sentry from "@sentry/cloudflare";
+import type { Env, AppVariables, SessionRecord, UserRecord } from "./types.js";
 import { authMiddleware } from "./middleware/auth.js";
+import { bindingsMiddleware } from "./middleware/bindings.js";
+import { requestLoggerMiddleware } from "./middleware/request-logger.js";
 import authRoutes from "./routes/auth.js";
 import deviceAuthRoutes from "./routes/device-auth.js";
 import reposRoutes from "./routes/repos.js";
@@ -14,10 +17,13 @@ import siteRoutes from "./routes/site.jsx";
 
 type AppEnv = {
   Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
+  Variables: AppVariables;
 };
 
 const app = new Hono<AppEnv>();
+
+// Platform bindings → KVStore + AppConfig on context
+app.use("*", bindingsMiddleware);
 
 app.use("*", cors({
   origin: (origin, c) => {
@@ -36,19 +42,37 @@ app.use("*", async (c, next) => {
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
   c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  c.header(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://avatars.githubusercontent.com data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-  );
-  if (new URL(c.req.url).protocol === "https:") {
+  const isLocal = new URL(c.req.url).hostname === "localhost";
+  if (!isLocal) {
+    c.header(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://avatars.githubusercontent.com data:; connect-src 'self' https://*.ingest.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    );
     c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
+});
+
+// Request logger (generates requestId, flushes to Axiom via waitUntil)
+app.use("*", requestLoggerMiddleware);
+
+// Global error handler
+app.onError((err, c) => {
+  const logger = c.var.logger;
+  const requestId = c.var.requestId ?? "unknown";
+  if (logger) {
+    logger.error("unhandled_error", {
+      error: err.message,
+      stack: err.stack,
+    });
+  }
+  Sentry.captureException(err);
+  return c.json({ error: "Internal server error", requestId }, 500);
 });
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-// Auth status (unauthenticated) — supports both old and new session formats
+// Auth status (unauthenticated)
 app.get("/api/auth/me", async (c) => {
   const cookies = c.req.header("Cookie") ?? "";
   const sessionMatch = cookies.match(/cms_session=([^;]*)/);
@@ -58,26 +82,17 @@ app.get("/api/auth/me", async (c) => {
     return c.json({ authenticated: false });
   }
 
-  const raw = await c.env.SESSIONS.get(sessionId, "text");
+  const raw = await c.var.sessions.getText(sessionId);
   if (!raw) {
     return c.json({ authenticated: false });
   }
 
-  const parsed = JSON.parse(raw) as LegacySessionData | SessionRecord;
-
-  if ("githubUsername" in parsed) {
-    // Legacy format — force re-login to migrate
-    return c.json({ authenticated: false });
-  }
-
-  // New format — check expiry
-  const session = parsed as SessionRecord;
+  const session = JSON.parse(raw) as SessionRecord;
   if (new Date(session.expiresAt) < new Date()) {
     return c.json({ authenticated: false });
   }
-  const userRecord = await c.env.CMS_DATA.get<UserRecord>(
+  const userRecord = await c.var.data.getJSON<UserRecord>(
     `user:${session.userId}`,
-    "json"
   );
 
   if (!userRecord) {
@@ -136,4 +151,20 @@ app.notFound((c) => {
   );
 });
 
-export default app;
+const handler: ExportedHandler<Env> = {
+  fetch(request, env, ctx) {
+    if (!env.SENTRY_DSN) {
+      return app.fetch(request, env, ctx);
+    }
+    const wrapped = Sentry.withSentry(
+      (e: Env) => ({
+        dsn: e.SENTRY_DSN,
+        tracesSampleRate: 1.0,
+      }),
+      { fetch: app.fetch } as ExportedHandler<Env>,
+    );
+    return wrapped.fetch!(request, env, ctx);
+  },
+};
+
+export default handler;

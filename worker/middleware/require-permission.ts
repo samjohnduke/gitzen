@@ -1,14 +1,9 @@
 import { createMiddleware } from "hono/factory";
-import type { Env, AuthContext } from "../types.js";
+import type { AppVariables } from "../types.js";
 import type { Permission } from "../../shared/types.js";
 
 type PermEnv = {
-  Bindings: Env;
-  Variables: {
-    auth: AuthContext;
-    githubToken: string;
-    githubUsername: string;
-  };
+  Variables: AppVariables;
 };
 
 /**

@@ -1,6 +1,5 @@
 /** @jsxImportSource hono/jsx */
 import { Hono } from "hono";
-import type { Env } from "../types.js";
 import { PageLayout } from "../pages/layout.js";
 import { LandingPage } from "../pages/landing.js";
 import { DocsPage } from "../pages/docs-page.js";
@@ -27,8 +26,7 @@ const docMap: Record<string, DocModule> = {
   "self-hosting": selfHosting,
 };
 
-type SiteApp = { Bindings: Env };
-const site = new Hono<SiteApp>();
+const site = new Hono();
 
 // Landing page
 site.get("/", (c) => {

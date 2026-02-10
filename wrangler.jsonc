@@ -12,12 +12,17 @@
   "kv_namespaces": [
     { "binding": "SESSIONS", "id": "56d4300673e14bb7b4a7f116df9ad22a" },
     { "binding": "CMS_DATA", "id": "3aa29c73af534dde9b07f02a83166502" }
+  ],
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "routes": [
+    { "pattern": "gitzen.dev", "custom_domain": true }
   ]
   // Secrets (set via `wrangler secret put`):
   // - GITHUB_APP_CLIENT_ID      (GitHub App client ID)
   // - GITHUB_APP_CLIENT_SECRET  (GitHub App client secret)
-  // - GITHUB_CLIENT_ID          (legacy OAuth App, kept during migration)
-  // - GITHUB_CLIENT_SECRET      (legacy OAuth App, kept during migration)
   // - ENCRYPTION_KEY            (AES-256-GCM key for encrypting GitHub tokens)
   // - API_TOKEN_SECRET          (HMAC-SHA256 key for signing CMS API tokens)
+  // - SENTRY_DSN                (Sentry project DSN)
+  // - AXIOM_API_TOKEN           (Axiom API token for log ingest)
+  // - AXIOM_DATASET             (Axiom dataset name, e.g. "gitzen-logs")
 }

@@ -1,34 +1,33 @@
 import { createMiddleware } from "hono/factory";
 import type {
-  Env,
+  AppVariables,
   AuthContext,
-  LegacySessionData,
   SessionRecord,
   UserRecord,
   ApiTokenRecord,
 } from "../types.js";
+import type { KVStore } from "../lib/kv.js";
+import type { AppConfig } from "../lib/config.js";
+import type { RequestLogger } from "../lib/logger.js";
 import { encrypt, decrypt, hmacVerify } from "../lib/crypto.js";
 
 type AuthEnv = {
-  Bindings: Env;
-  Variables: {
-    auth: AuthContext;
-    // Legacy aliases — routes can use c.var.auth going forward
-    githubToken: string;
-    githubUsername: string;
-  };
+  Variables: AppVariables;
 };
 
 export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   const authHeader = c.req.header("Authorization");
 
+  const logger: RequestLogger | undefined = c.var.logger;
+
   if (authHeader?.startsWith("Bearer cms_")) {
     // CMS API token path
     const auth = await resolveApiToken(
       authHeader.slice(7),
-      c.env.API_TOKEN_SECRET,
-      c.env.ENCRYPTION_KEY,
-      c.env.CMS_DATA
+      c.var.config.apiTokenSecret,
+      c.var.config.encryptionKey,
+      c.var.data,
+      logger
     );
     if (!auth) return c.json({ error: "Invalid or expired API token" }, 401);
 
@@ -52,59 +51,40 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   const sessionId = getCookie(c.req.raw, "cms_session");
   if (!sessionId) return c.json({ error: "Unauthorized" }, 401);
 
-  const raw = await c.env.SESSIONS.get(sessionId, "text");
+  const raw = await c.var.sessions.getText(sessionId);
   if (!raw) return c.json({ error: "Unauthorized" }, 401);
 
-  const parsed = JSON.parse(raw) as LegacySessionData | SessionRecord;
+  const session = JSON.parse(raw) as SessionRecord;
 
-  let auth: AuthContext;
-
-  if ("githubToken" in parsed) {
-    // Legacy session — lazily migrate with new session ID
-    const newSessionId = crypto.randomUUID();
-    auth = await migrateLegacySession(
-      sessionId,
-      newSessionId,
-      parsed as LegacySessionData,
-      c.env
-    );
-    // Set new session cookie — old session is deleted inside migrateLegacySession
-    const isLocal = new URL(c.req.url).hostname === "localhost";
-    const sec = isLocal ? "" : " Secure;";
-    c.header(
-      "Set-Cookie",
-      `cms_session=${newSessionId}; Path=/; HttpOnly; SameSite=Lax;${sec} Max-Age=${60 * 60 * 24 * 30}`
-    );
-  } else {
-    // New-format session
-    const session = parsed as SessionRecord;
-
-    if (new Date(session.expiresAt) < new Date()) {
-      await c.env.SESSIONS.delete(sessionId);
-      return c.json({ error: "Unauthorized" }, 401);
-    }
-
-    const userRecord = await c.env.CMS_DATA.get<UserRecord>(
-      `user:${session.userId}`,
-      "json"
-    );
-    if (!userRecord) return c.json({ error: "Unauthorized" }, 401);
-
-    let githubToken = await decrypt(
-      userRecord.encryptedGithubToken,
-      c.env.ENCRYPTION_KEY
-    );
-
-    // Refresh GitHub token if expiring soon
-    githubToken = await maybeRefreshToken(userRecord, githubToken, c.env);
-
-    auth = {
-      userId: userRecord.githubUserId,
-      githubUsername: userRecord.githubUsername,
-      githubToken,
-      authMethod: "session",
-    };
+  if (new Date(session.expiresAt) < new Date()) {
+    await c.var.sessions.delete(sessionId);
+    return c.json({ error: "Unauthorized" }, 401);
   }
+
+  const userRecord = await c.var.data.getJSON<UserRecord>(
+    `user:${session.userId}`,
+  );
+  if (!userRecord) return c.json({ error: "Unauthorized" }, 401);
+
+  let githubToken = await decrypt(
+    userRecord.encryptedGithubToken,
+    c.var.config.encryptionKey
+  );
+
+  // Refresh GitHub token if expiring soon
+  githubToken = await maybeRefreshToken(
+    userRecord,
+    githubToken,
+    { data: c.var.data, config: c.var.config },
+    logger,
+  );
+
+  const auth: AuthContext = {
+    userId: userRecord.githubUserId,
+    githubUsername: userRecord.githubUsername,
+    githubToken,
+    authMethod: "session",
+  };
 
   c.set("auth", auth);
   c.set("githubToken", auth.githubToken);
@@ -118,7 +98,8 @@ async function resolveApiToken(
   fullToken: string,
   apiTokenSecret: string,
   encryptionKey: string,
-  kvData: KVNamespace
+  kvData: KVStore,
+  logger?: RequestLogger
 ): Promise<AuthContext | null> {
   // Format: cms_{token_id}.{hmac_hex}
   const withoutPrefix = fullToken.slice(4); // strip "cms_"
@@ -133,29 +114,34 @@ async function resolveApiToken(
   if (!valid) return null;
 
   // Look up token record
-  const record = await kvData.get<ApiTokenRecord>(
+  const record = await kvData.getJSON<ApiTokenRecord>(
     `api-token:${tokenId}`,
-    "json"
   );
   if (!record) return null;
 
   // Check expiry — clean up expired tokens
   if (record.expiresAt && new Date(record.expiresAt) < new Date()) {
-    await kvData.delete(`api-token:${tokenId}`).catch(() => {});
+    await kvData.delete(`api-token:${tokenId}`).catch((e) => {
+      logger?.warn("kv_delete_failed", { key: `api-token:${tokenId}`, error: String(e) });
+    });
     // Best-effort cleanup of user token index
     const indexKey = `user-tokens:${record.userId}`;
-    const index = await kvData.get<{ tokenIds: string[] }>(indexKey, "json").catch(() => null);
+    const index = await kvData.getJSON<{ tokenIds: string[] }>(indexKey).catch((e) => {
+      logger?.warn("kv_get_failed", { key: indexKey, error: String(e) });
+      return null;
+    });
     if (index) {
       index.tokenIds = index.tokenIds.filter((id) => id !== tokenId);
-      await kvData.put(indexKey, JSON.stringify(index)).catch(() => {});
+      await kvData.put(indexKey, JSON.stringify(index)).catch((e) => {
+        logger?.warn("kv_put_failed", { key: indexKey, error: String(e) });
+      });
     }
     return null;
   }
 
   // Look up user
-  const userRecord = await kvData.get<UserRecord>(
+  const userRecord = await kvData.getJSON<UserRecord>(
     `user:${record.userId}`,
-    "json"
   );
   if (!userRecord) return null;
 
@@ -169,7 +155,9 @@ async function resolveApiToken(
     ...record,
     lastUsedAt: new Date().toISOString(),
   };
-  await kvData.put(`api-token:${tokenId}`, JSON.stringify(updated)).catch(() => {});
+  await kvData.put(`api-token:${tokenId}`, JSON.stringify(updated)).catch((e) => {
+    logger?.warn("kv_put_failed", { key: `api-token:${tokenId}`, error: String(e) });
+  });
 
   return {
     userId: record.userId,
@@ -183,89 +171,13 @@ async function resolveApiToken(
   };
 }
 
-// --- Legacy session migration ---
-
-async function migrateLegacySession(
-  oldSessionId: string,
-  newSessionId: string,
-  legacy: LegacySessionData,
-  env: Env
-): Promise<AuthContext> {
-  // Fetch GitHub user ID (immutable, needed as UserRecord key)
-  const res = await fetch("https://api.github.com/user", {
-    headers: {
-      Authorization: `Bearer ${legacy.githubToken}`,
-      "User-Agent": "samduke-cms",
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch GitHub user during migration");
-  }
-
-  const ghUser = (await res.json()) as { id: number; login: string };
-  const userId = String(ghUser.id);
-
-  // Create or update UserRecord
-  const existing = await env.CMS_DATA.get<UserRecord>(
-    `user:${userId}`,
-    "json"
-  );
-
-  const encryptedGithubToken = await encrypt(
-    legacy.githubToken,
-    env.ENCRYPTION_KEY
-  );
-
-  const userRecord: UserRecord = existing
-    ? {
-        ...existing,
-        githubUsername: ghUser.login,
-        encryptedGithubToken,
-        updatedAt: new Date().toISOString(),
-      }
-    : {
-        githubUserId: userId,
-        githubUsername: ghUser.login,
-        encryptedGithubToken,
-        encryptedRefreshToken: null,
-        tokenExpiresAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-  await env.CMS_DATA.put(`user:${userId}`, JSON.stringify(userRecord));
-
-  // Delete old session and create new one with fresh ID
-  await env.SESSIONS.delete(oldSessionId);
-
-  const expiresAt = new Date(
-    Date.now() + 30 * 24 * 60 * 60 * 1000
-  ).toISOString();
-  const newSession: SessionRecord = {
-    userId,
-    createdAt: new Date().toISOString(),
-    expiresAt,
-  };
-
-  await env.SESSIONS.put(newSessionId, JSON.stringify(newSession), {
-    expirationTtl: 60 * 60 * 24 * 30,
-  });
-
-  return {
-    userId,
-    githubUsername: ghUser.login,
-    githubToken: legacy.githubToken,
-    authMethod: "session",
-  };
-}
-
 // --- Token refresh ---
 
 async function maybeRefreshToken(
   userRecord: UserRecord,
   currentToken: string,
-  env: Env
+  deps: { data: KVStore; config: AppConfig },
+  logger?: RequestLogger
 ): Promise<string> {
   if (!userRecord.tokenExpiresAt || !userRecord.encryptedRefreshToken) {
     return currentToken;
@@ -281,7 +193,7 @@ async function maybeRefreshToken(
   try {
     const refreshToken = await decrypt(
       userRecord.encryptedRefreshToken,
-      env.ENCRYPTION_KEY
+      deps.config.encryptionKey
     );
 
     const res = await fetch(
@@ -293,8 +205,8 @@ async function maybeRefreshToken(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          client_id: env.GITHUB_APP_CLIENT_ID,
-          client_secret: env.GITHUB_APP_CLIENT_SECRET,
+          client_id: deps.config.githubAppClientId,
+          client_secret: deps.config.githubAppClientSecret,
           grant_type: "refresh_token",
           refresh_token: refreshToken,
         }),
@@ -311,10 +223,10 @@ async function maybeRefreshToken(
 
     const newEncryptedToken = await encrypt(
       data.access_token,
-      env.ENCRYPTION_KEY
+      deps.config.encryptionKey
     );
     const newEncryptedRefresh = data.refresh_token
-      ? await encrypt(data.refresh_token, env.ENCRYPTION_KEY)
+      ? await encrypt(data.refresh_token, deps.config.encryptionKey)
       : userRecord.encryptedRefreshToken;
     const newExpiry = data.expires_in
       ? new Date(Date.now() + data.expires_in * 1000).toISOString()
@@ -328,14 +240,16 @@ async function maybeRefreshToken(
       updatedAt: new Date().toISOString(),
     };
 
-    await env.CMS_DATA.put(
+    await deps.data.put(
       `user:${userRecord.githubUserId}`,
       JSON.stringify(updated)
-    ).catch(() => {});
+    ).catch((e) => {
+      logger?.warn("kv_put_failed", { key: `user:${userRecord.githubUserId}`, error: String(e) });
+    });
 
     return data.access_token;
   } catch (e) {
-    console.error("Token refresh failed:", e);
+    logger?.warn("token_refresh_failed", { userId: userRecord.githubUserId, error: String(e) });
     return currentToken;
   }
 }

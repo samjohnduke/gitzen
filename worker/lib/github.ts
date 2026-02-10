@@ -1,3 +1,5 @@
+import type { RequestLogger } from "./logger.js";
+
 const GITHUB_API = "https://api.github.com";
 
 /** Encode each segment of a file path for use in GitHub API URLs. */
@@ -25,15 +27,20 @@ interface GitHubDirectoryItem {
 
 export class GitHubClient {
   private token: string;
+  private logger?: RequestLogger;
 
-  constructor(token: string) {
+  constructor(token: string, logger?: RequestLogger) {
     this.token = token;
+    this.logger = logger;
   }
 
   private async request<T>(
     path: string,
     options: RequestInit = {}
   ): Promise<T> {
+    const start = Date.now();
+    const method = (options.method ?? "GET").toUpperCase();
+
     const res = await fetch(`${GITHUB_API}${path}`, {
       ...options,
       headers: {
@@ -43,6 +50,16 @@ export class GitHubClient {
         ...((options.headers as Record<string, string>) ?? {}),
       },
     });
+
+    if (this.logger) {
+      this.logger.info("github_api", {
+        github_method: method,
+        github_path: path,
+        github_status: res.status,
+        github_duration_ms: Date.now() - start,
+        github_ratelimit_remaining: res.headers.get("x-ratelimit-remaining"),
+      });
+    }
 
     if (!res.ok) {
       const body = await res.text();

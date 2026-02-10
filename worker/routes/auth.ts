@@ -1,13 +1,16 @@
 import { Hono } from "hono";
-import type { Env, SessionRecord, UserRecord } from "../types.js";
+import type { AppVariables, SessionRecord, UserRecord } from "../types.js";
+import type { RequestLogger } from "../lib/logger.js";
+import type { KVStore } from "../lib/kv.js";
+import type { AppConfig } from "../lib/config.js";
 import { encrypt, timingSafeEqual } from "../lib/crypto.js";
 
-type AuthApp = { Bindings: Env };
+type AuthApp = { Variables: { logger: RequestLogger; requestId: string; sessions: KVStore; data: KVStore; config: AppConfig } };
 
 const auth = new Hono<AuthApp>();
 
 auth.get("/login", (c) => {
-  const clientId = c.env.GITHUB_APP_CLIENT_ID;
+  const clientId = c.var.config.githubAppClientId;
   const callbackUrl = new URL("/auth/callback", c.req.url).toString();
   const state = crypto.randomUUID();
 
@@ -52,8 +55,8 @@ auth.get("/callback", async (c) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      client_id: c.env.GITHUB_APP_CLIENT_ID,
-      client_secret: c.env.GITHUB_APP_CLIENT_SECRET,
+      client_id: c.var.config.githubAppClientId,
+      client_secret: c.var.config.githubAppClientSecret,
       code,
     }),
   });
@@ -67,7 +70,7 @@ auth.get("/callback", async (c) => {
   };
 
   if (!tokenData.access_token) {
-    console.error("GitHub token exchange failed:", tokenData.error, tokenData.error_description);
+    c.var.logger?.audit("auth.login_failed", { reason: tokenData.error ?? "no_access_token" });
     return c.json({ error: "Failed to get access token" }, 400);
   }
 
@@ -89,20 +92,19 @@ auth.get("/callback", async (c) => {
   // Create or update UserRecord with encrypted tokens
   const encryptedGithubToken = await encrypt(
     tokenData.access_token,
-    c.env.ENCRYPTION_KEY
+    c.var.config.encryptionKey
   );
 
   const encryptedRefreshToken = tokenData.refresh_token
-    ? await encrypt(tokenData.refresh_token, c.env.ENCRYPTION_KEY)
+    ? await encrypt(tokenData.refresh_token, c.var.config.encryptionKey)
     : null;
 
   const tokenExpiresAt = tokenData.expires_in
     ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
     : null;
 
-  const existing = await c.env.CMS_DATA.get<UserRecord>(
+  const existing = await c.var.data.getJSON<UserRecord>(
     `user:${userId}`,
-    "json"
   );
 
   const userRecord: UserRecord = {
@@ -115,7 +117,7 @@ auth.get("/callback", async (c) => {
     updatedAt: new Date().toISOString(),
   };
 
-  await c.env.CMS_DATA.put(`user:${userId}`, JSON.stringify(userRecord));
+  await c.var.data.put(`user:${userId}`, JSON.stringify(userRecord));
 
   // Create session (references user, no plaintext token)
   const sessionId = crypto.randomUUID();
@@ -129,9 +131,9 @@ auth.get("/callback", async (c) => {
     expiresAt,
   };
 
-  await c.env.SESSIONS.put(sessionId, JSON.stringify(session), {
-    expirationTtl: 60 * 60 * 24 * 30,
-  });
+  await c.var.sessions.put(sessionId, JSON.stringify(session), 60 * 60 * 24 * 30);
+
+  c.var.logger?.audit("auth.login", { userId, username: user.login });
 
   const isLocal = new URL(c.req.url).hostname === "localhost";
   const sec = isLocal ? "" : " Secure;";
@@ -155,8 +157,10 @@ auth.post("/logout", async (c) => {
   const sessionId = sessionMatch ? sessionMatch[1] : null;
 
   if (sessionId) {
-    await c.env.SESSIONS.delete(sessionId);
+    await c.var.sessions.delete(sessionId);
   }
+
+  c.var.logger?.audit("auth.logout");
 
   const isLocal = new URL(c.req.url).hostname === "localhost";
   const sec = isLocal ? "" : " Secure;";

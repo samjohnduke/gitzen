@@ -1,4 +1,7 @@
 import type { Permission } from "../shared/types.js";
+import type { RequestLogger } from "./lib/logger.js";
+import type { KVStore } from "./lib/kv.js";
+import type { AppConfig } from "./lib/config.js";
 
 export interface Env {
   SESSIONS: KVNamespace;
@@ -7,22 +10,28 @@ export interface Env {
   // GitHub App credentials
   GITHUB_APP_CLIENT_ID: string;
   GITHUB_APP_CLIENT_SECRET: string;
-  // Legacy OAuth App credentials (kept for migration period)
-  GITHUB_CLIENT_ID: string;
-  GITHUB_CLIENT_SECRET: string;
   // Crypto secrets
   ENCRYPTION_KEY: string;
   API_TOKEN_SECRET: string;
+  // Observability
+  SENTRY_DSN: string;
+  AXIOM_API_TOKEN: string;
+  AXIOM_DATASET: string;
+  CF_VERSION_METADATA: { id: string };
 }
 
-/** Old session format — will be lazily migrated to new format. */
-export interface LegacySessionData {
+export interface AppVariables {
+  auth: AuthContext;
   githubToken: string;
   githubUsername: string;
-  createdAt: string;
+  logger: RequestLogger;
+  requestId: string;
+  sessions: KVStore;
+  data: KVStore;
+  config: AppConfig;
 }
 
-/** New session format — references a UserRecord. */
+/** Session format — references a UserRecord. */
 export interface SessionRecord {
   userId: string;
   createdAt: string;
@@ -69,5 +78,3 @@ export interface AuthContext {
   };
 }
 
-// Keep backward-compat alias during migration
-export type SessionData = LegacySessionData;

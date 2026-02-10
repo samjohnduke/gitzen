@@ -1,12 +1,11 @@
 import { Hono } from "hono";
-import type { Env, AuthContext } from "../types.js";
+import type { AppVariables } from "../types.js";
 import type { CmsConfig } from "../../shared/types.js";
 import { GitHubClient } from "../lib/github.js";
 import { requirePermission, requireRepoAccess } from "../middleware/require-permission.js";
 
 type ConfigApp = {
-  Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
+  Variables: AppVariables;
 };
 
 const config = new Hono<ConfigApp>();
@@ -17,7 +16,7 @@ config.get(
   requireRepoAccess(),
   async (c) => {
     const repo = decodeURIComponent(c.req.param("repo"));
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     try {
       const { content } = await github.getFile(repo, "cms.config.json");

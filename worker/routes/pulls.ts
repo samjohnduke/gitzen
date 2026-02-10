@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Env, AuthContext } from "../types.js";
+import type { AppVariables } from "../types.js";
 import type { CmsConfig, PullRequestSummary, PullRequestDetail, ContentDiff, PrComment } from "../../shared/types.js";
 import { GitHubClient, GitHubApiError } from "../lib/github.js";
 import { parseFrontmatter } from "../../shared/frontmatter.js";
@@ -7,8 +7,7 @@ import { parseBranchName, previewUrl as buildPreviewUrl } from "../../shared/bra
 import { requirePermission, requireRepoAccess } from "../middleware/require-permission.js";
 
 type PullsApp = {
-  Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
+  Variables: AppVariables;
 };
 
 const pulls = new Hono<PullsApp>();
@@ -25,7 +24,7 @@ pulls.post(
   requireRepoAccess(),
   async (c) => {
     const repo = decodeURIComponent(c.req.param("repo"));
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
     const { branch, title, body } = await c.req.json<{
       branch: string;
       title: string;
@@ -61,6 +60,8 @@ pulls.post(
       // Config fetch failed — no preview URL
     }
 
+    c.var.logger?.audit("pr.created", { repo, prNumber: pr.number });
+
     return c.json({
       number: pr.number,
       htmlUrl: pr.html_url,
@@ -76,7 +77,7 @@ pulls.get(
   requireRepoAccess(),
   async (c) => {
     const repo = decodeURIComponent(c.req.param("repo"));
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const [ghPrs, configResult] = await Promise.all([
       github.listPullRequests(repo, "open"),
@@ -124,7 +125,7 @@ pulls.get(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const [pr, configResult] = await Promise.all([
       github.getPullRequest(repo, number),
@@ -173,7 +174,7 @@ pulls.get(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const pr = await github.getPullRequest(repo, number);
     const comparison = await github.compareCommits(
@@ -276,7 +277,7 @@ pulls.put(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const pr = await github.getPullRequest(repo, number);
 
@@ -295,6 +296,7 @@ pulls.put(
         // Branch may already be deleted
       }
 
+      c.var.logger?.audit("pr.merged", { repo, prNumber: number });
       return c.json({ sha: result.sha, merged: true });
     } catch (e) {
       if (e instanceof GitHubApiError && e.status === 409) {
@@ -314,7 +316,7 @@ pulls.put(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     try {
       await github.updatePullRequestBranch(repo, number);
@@ -337,7 +339,7 @@ pulls.post(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const pr = await github.getPullRequest(repo, number);
     const branch = pr.head.ref;
@@ -402,7 +404,7 @@ pulls.get(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const ghComments = await github.listIssueComments(repo, number);
     const comments: PrComment[] = ghComments.map((gc) => ({
@@ -426,7 +428,7 @@ pulls.post(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
     const { body } = await c.req.json<{ body: string }>();
 
     if (!body?.trim()) {
@@ -459,7 +461,7 @@ pulls.delete(
     const repo = decodeURIComponent(c.req.param("repo"));
     const number = parsePrNumber(c.req.param("number"));
     if (number === null) return c.json({ error: "Invalid PR number" }, 400);
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const pr = await github.getPullRequest(repo, number);
 

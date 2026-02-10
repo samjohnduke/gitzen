@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { useAuth } from "./hooks/use-auth";
 import { useThemeState, ThemeContext } from "./hooks/use-theme";
+import { ErrorBoundary } from "./components/error-boundary";
 import { Layout } from "./components/layout";
 import { LoginPage } from "./components/login-page";
 import { ContentList } from "./components/content-list";
@@ -36,31 +37,33 @@ export function App() {
   }
 
   return (
-    <ThemeContext.Provider value={themeState}>
-      <BrowserRouter basename="/app">
-        <Routes>
-          <Route element={<Layout username={username} onLogout={logout} />}>
-            <Route path="/" element={<EmptyState />} />
-            <Route path="/settings/tokens" element={<TokenManager />} />
-            <Route path="/:repo/reviews" element={<ReviewsList />} />
-            <Route path="/:repo/reviews/:number" element={<ReviewDetail />} />
-            <Route
-              path="/:repo/:collection"
-              element={<ContentList />}
-            />
-            <Route
-              path="/:repo/:collection/new"
-              element={<ContentEditor isNew />}
-            />
-            <Route
-              path="/:repo/:collection/:slug"
-              element={<ContentEditor />}
-            />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </ThemeContext.Provider>
+    <ErrorBoundary>
+      <ThemeContext.Provider value={themeState}>
+        <BrowserRouter basename="/app">
+          <Routes>
+            <Route element={<Layout username={username} onLogout={logout} />}>
+              <Route path="/" element={<EmptyState />} />
+              <Route path="/settings/tokens" element={<TokenManager />} />
+              <Route path="/:repo/reviews" element={<ReviewsList />} />
+              <Route path="/:repo/reviews/:number" element={<ReviewDetail />} />
+              <Route
+                path="/:repo/:collection"
+                element={<ContentList />}
+              />
+              <Route
+                path="/:repo/:collection/new"
+                element={<ContentEditor isNew />}
+              />
+              <Route
+                path="/:repo/:collection/:slug"
+                element={<ContentEditor />}
+              />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ThemeContext.Provider>
+    </ErrorBoundary>
   );
 }
 

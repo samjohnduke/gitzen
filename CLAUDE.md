@@ -50,7 +50,5 @@ npm run test:watch  # Watch mode
 - Secrets:
   - `GITHUB_APP_CLIENT_ID` — GitHub App client ID
   - `GITHUB_APP_CLIENT_SECRET` — GitHub App client secret
-  - `GITHUB_CLIENT_ID` — Legacy OAuth App (migration period)
-  - `GITHUB_CLIENT_SECRET` — Legacy OAuth App (migration period)
   - `ENCRYPTION_KEY` — AES-256-GCM key for encrypting GitHub tokens at rest
   - `API_TOKEN_SECRET` — HMAC-SHA256 key for signing CMS API tokens

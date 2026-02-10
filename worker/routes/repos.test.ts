@@ -1,22 +1,29 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { Hono } from "hono";
-import type { Env, AuthContext } from "../types";
+import type { AuthContext, AppVariables } from "../types";
 import type { Permission } from "../../shared/types";
 import type { RepoConnection } from "../../shared/types";
 import reposRoutes from "./repos";
-
-type TestApp = {
-  Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
-};
+import { CloudflareKVStore } from "../lib/kv-cloudflare";
 
 function createApp(auth: AuthContext) {
-  const app = new Hono<TestApp>();
+  const app = new Hono<{ Variables: AppVariables }>();
   app.use("*", async (c, next) => {
     c.set("auth", auth);
     c.set("githubToken", auth.githubToken);
     c.set("githubUsername", auth.githubUsername);
+    c.set("sessions", new CloudflareKVStore(env.SESSIONS));
+    c.set("data", new CloudflareKVStore(env.CMS_DATA));
+    c.set("config", {
+      githubAppClientId: "",
+      githubAppClientSecret: "",
+      encryptionKey: "",
+      apiTokenSecret: "",
+      sentryDsn: "",
+      axiomApiToken: "",
+      axiomDataset: "",
+    });
     return next();
   });
   app.route("/api/repos", reposRoutes);
@@ -58,7 +65,7 @@ describe("GET /api/repos — repo scope filtering", () => {
 
   it("session auth sees all repos", async () => {
     const app = createApp(sessionAuth);
-    const res = await app.request("/api/repos", {}, env);
+    const res = await app.request("/api/repos");
     expect(res.status).toBe(200);
     const body = await res.json<RepoConnection[]>();
     expect(body).toHaveLength(3);
@@ -71,7 +78,7 @@ describe("GET /api/repos — repo scope filtering", () => {
 
   it("wildcard token sees all repos", async () => {
     const app = createApp(tokenAuth(["repos:read"], ["*"]));
-    const res = await app.request("/api/repos", {}, env);
+    const res = await app.request("/api/repos");
     expect(res.status).toBe(200);
     const body = await res.json<RepoConnection[]>();
     expect(body).toHaveLength(3);
@@ -79,7 +86,7 @@ describe("GET /api/repos — repo scope filtering", () => {
 
   it("token scoped to repo-a only sees repo-a", async () => {
     const app = createApp(tokenAuth(["repos:read"], ["owner/repo-a"]));
-    const res = await app.request("/api/repos", {}, env);
+    const res = await app.request("/api/repos");
     expect(res.status).toBe(200);
     const body = await res.json<RepoConnection[]>();
     expect(body).toHaveLength(1);
@@ -90,7 +97,7 @@ describe("GET /api/repos — repo scope filtering", () => {
     const app = createApp(
       tokenAuth(["repos:read"], ["owner/repo-a", "other/repo-c"])
     );
-    const res = await app.request("/api/repos", {}, env);
+    const res = await app.request("/api/repos");
     expect(res.status).toBe(200);
     const body = await res.json<RepoConnection[]>();
     expect(body).toHaveLength(2);
@@ -102,7 +109,7 @@ describe("GET /api/repos — repo scope filtering", () => {
 
   it("token scoped to nonexistent repo sees empty list", async () => {
     const app = createApp(tokenAuth(["repos:read"], ["owner/nope"]));
-    const res = await app.request("/api/repos", {}, env);
+    const res = await app.request("/api/repos");
     expect(res.status).toBe(200);
     const body = await res.json<RepoConnection[]>();
     expect(body).toHaveLength(0);
@@ -110,7 +117,7 @@ describe("GET /api/repos — repo scope filtering", () => {
 
   it("token without repos:read is rejected", async () => {
     const app = createApp(tokenAuth(["content:read"], ["*"]));
-    const res = await app.request("/api/repos", {}, env);
+    const res = await app.request("/api/repos");
     expect(res.status).toBe(403);
   });
 });

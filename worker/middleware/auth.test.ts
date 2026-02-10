@@ -2,23 +2,38 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { Hono } from "hono";
 import type {
-  Env,
   AuthContext,
+  AppVariables,
   UserRecord,
   ApiTokenRecord,
   SessionRecord,
-  LegacySessionData,
 } from "../types";
 import { authMiddleware } from "./auth";
 import { encrypt, hmacSign, generateRandomHex } from "../lib/crypto";
+import { CloudflareKVStore } from "../lib/kv-cloudflare";
+import type { AppConfig } from "../lib/config";
 
-type TestApp = {
-  Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
+const ENCRYPTION_KEY = "test-encryption-key";
+const API_TOKEN_SECRET = "test-api-token-secret";
+
+const testConfig: AppConfig = {
+  githubAppClientId: "test-client-id",
+  githubAppClientSecret: "test-client-secret",
+  encryptionKey: ENCRYPTION_KEY,
+  apiTokenSecret: API_TOKEN_SECRET,
+  sentryDsn: "",
+  axiomApiToken: "",
+  axiomDataset: "",
 };
 
 function createApp() {
-  const app = new Hono<TestApp>();
+  const app = new Hono<{ Variables: AppVariables }>();
+  app.use("*", async (c, next) => {
+    c.set("sessions", new CloudflareKVStore(env.SESSIONS));
+    c.set("data", new CloudflareKVStore(env.CMS_DATA));
+    c.set("config", testConfig);
+    return next();
+  });
   app.use("*", authMiddleware);
   app.get("/test", (c) =>
     c.json({
@@ -35,9 +50,6 @@ function createApp() {
   );
   return app;
 }
-
-const ENCRYPTION_KEY = "test-encryption-key";
-const API_TOKEN_SECRET = "test-api-token-secret";
 
 async function seedUser(userId: string, username: string, githubToken: string) {
   const encryptedToken = await encrypt(githubToken, ENCRYPTION_KEY);
@@ -85,20 +97,12 @@ async function seedApiToken(
 }
 
 describe("auth middleware", () => {
-  beforeEach(async () => {
-    const e = env as unknown as Record<string, unknown>;
-    e.ENCRYPTION_KEY = ENCRYPTION_KEY;
-    e.API_TOKEN_SECRET = API_TOKEN_SECRET;
-    e.GITHUB_APP_CLIENT_ID = "test-client-id";
-    e.GITHUB_APP_CLIENT_SECRET = "test-client-secret";
-  });
-
   // --- No auth ---
 
   describe("unauthenticated requests", () => {
     it("rejects requests with no auth header and no cookie", async () => {
       const app = createApp();
-      const res = await app.request("/test", {}, env);
+      const res = await app.request("/test");
       expect(res.status).toBe(401);
       const body = await res.json<{ error: string }>();
       expect(body.error).toBe("Unauthorized");
@@ -109,7 +113,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: "" } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -119,7 +122,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Cookie: "cms_session=nonexistent-session-id" } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -133,7 +135,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: "Bearer ghp_abc123" } },
-        env
       );
       expect(res.status).toBe(401);
       const body = await res.json<{ error: string }>();
@@ -156,7 +157,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Cookie: `cms_session=${sessionId}` } },
-        env
       );
       expect(res.status).toBe(200);
       const body = await res.json<Record<string, unknown>>();
@@ -179,7 +179,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Cookie: `cms_session=${sessionId}` } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -192,7 +191,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Cookie: `cms_session=${sessionId}` } },
-        env
       );
       expect(res.status).toBe(401);
       const body = await res.json<{ error: string }>();
@@ -213,7 +211,6 @@ describe("auth middleware", () => {
             Cookie: `other=value; cms_session=${sessionId}; another=thing`,
           },
         },
-        env
       );
       expect(res.status).toBe(200);
     });
@@ -235,7 +232,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: bearer } },
-        env
       );
       expect(res.status).toBe(200);
       const body = await res.json<Record<string, unknown>>();
@@ -256,7 +252,6 @@ describe("auth middleware", () => {
       await app.request(
         "/test",
         { headers: { Authorization: bearer } },
-        env
       );
 
       const record = await env.CMS_DATA.get<ApiTokenRecord>(
@@ -274,7 +269,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: `Bearer cms_${tokenId}.${fakeHmac}` } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -284,7 +278,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: "Bearer cms_nodothere" } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -294,7 +287,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: "Bearer cms_.somesignature" } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -310,7 +302,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: bearer } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -324,7 +315,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: bearer } },
-        env
       );
       expect(res.status).toBe(200);
     });
@@ -338,7 +328,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: `Bearer cms_${tokenId}.${hmac}` } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -363,7 +352,6 @@ describe("auth middleware", () => {
       const res = await app.request(
         "/test",
         { headers: { Authorization: `Bearer cms_${tokenId}.${hmac}` } },
-        env
       );
       expect(res.status).toBe(401);
     });
@@ -388,7 +376,6 @@ describe("auth middleware", () => {
             Cookie: `cms_session=${sessionId}`,
           },
         },
-        env
       );
       expect(res.status).toBe(200);
       const body = await res.json<Record<string, unknown>>();

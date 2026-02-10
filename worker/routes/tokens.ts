@@ -1,12 +1,11 @@
 import { Hono } from "hono";
-import type { Env, AuthContext, ApiTokenRecord, UserTokenIndex } from "../types.js";
+import type { AppVariables, ApiTokenRecord, UserTokenIndex } from "../types.js";
 import type { Permission, ApiTokenSummary, ApiTokenCreated } from "../../shared/types.js";
 import { generateRandomHex, hmacSign } from "../lib/crypto.js";
 import { requireSession } from "../middleware/require-permission.js";
 
 type TokensApp = {
-  Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
+  Variables: AppVariables;
 };
 
 const VALID_PERMISSIONS: Permission[] = [
@@ -72,7 +71,7 @@ tokens.post("/", async (c) => {
   }
 
   const tokenId = generateRandomHex(20); // 40 hex chars
-  const hmac = await hmacSign(tokenId, c.env.API_TOKEN_SECRET);
+  const hmac = await hmacSign(tokenId, c.var.config.apiTokenSecret);
   const fullToken = `cms_${tokenId}.${hmac}`;
 
   const expiresAt = body.expiresIn
@@ -91,17 +90,17 @@ tokens.post("/", async (c) => {
   };
 
   // Store token record
-  await c.env.CMS_DATA.put(
+  await c.var.data.put(
     `api-token:${tokenId}`,
     JSON.stringify(record)
   );
 
   // Update user token index
   const indexKey = `user-tokens:${auth.userId}`;
-  const index = await c.env.CMS_DATA.get<UserTokenIndex>(indexKey, "json");
+  const index = await c.var.data.getJSON<UserTokenIndex>(indexKey);
   const tokenIds = index?.tokenIds ?? [];
   tokenIds.push(tokenId);
-  await c.env.CMS_DATA.put(indexKey, JSON.stringify({ tokenIds }));
+  await c.var.data.put(indexKey, JSON.stringify({ tokenIds }));
 
   const response: ApiTokenCreated = {
     tokenId: record.tokenId,
@@ -114,6 +113,12 @@ tokens.post("/", async (c) => {
     token: fullToken,
   };
 
+  c.var.logger?.audit("token.created", {
+    tokenId: record.tokenId,
+    name: record.name,
+    permissions: record.permissions,
+  });
+
   return c.json(response, 201);
 });
 
@@ -121,7 +126,7 @@ tokens.post("/", async (c) => {
 tokens.get("/", async (c) => {
   const auth = c.var.auth;
   const indexKey = `user-tokens:${auth.userId}`;
-  const index = await c.env.CMS_DATA.get<UserTokenIndex>(indexKey, "json");
+  const index = await c.var.data.getJSON<UserTokenIndex>(indexKey);
 
   if (!index || index.tokenIds.length === 0) {
     return c.json([]);
@@ -129,9 +134,8 @@ tokens.get("/", async (c) => {
 
   const summaries: ApiTokenSummary[] = [];
   for (const id of index.tokenIds) {
-    const record = await c.env.CMS_DATA.get<ApiTokenRecord>(
+    const record = await c.var.data.getJSON<ApiTokenRecord>(
       `api-token:${id}`,
-      "json"
     );
     if (!record) continue;
 
@@ -154,9 +158,8 @@ tokens.delete("/:tokenId", async (c) => {
   const auth = c.var.auth;
   const tokenId = c.req.param("tokenId");
 
-  const record = await c.env.CMS_DATA.get<ApiTokenRecord>(
+  const record = await c.var.data.getJSON<ApiTokenRecord>(
     `api-token:${tokenId}`,
-    "json"
   );
 
   if (!record || record.userId !== auth.userId) {
@@ -164,15 +167,17 @@ tokens.delete("/:tokenId", async (c) => {
   }
 
   // Delete the token record
-  await c.env.CMS_DATA.delete(`api-token:${tokenId}`);
+  await c.var.data.delete(`api-token:${tokenId}`);
 
   // Remove from user index
   const indexKey = `user-tokens:${auth.userId}`;
-  const index = await c.env.CMS_DATA.get<UserTokenIndex>(indexKey, "json");
+  const index = await c.var.data.getJSON<UserTokenIndex>(indexKey);
   if (index) {
     index.tokenIds = index.tokenIds.filter((id) => id !== tokenId);
-    await c.env.CMS_DATA.put(indexKey, JSON.stringify(index));
+    await c.var.data.put(indexKey, JSON.stringify(index));
   }
+
+  c.var.logger?.audit("token.revoked", { tokenId });
 
   return c.json({ ok: true });
 });

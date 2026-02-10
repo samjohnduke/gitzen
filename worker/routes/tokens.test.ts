@@ -2,29 +2,39 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { Hono } from "hono";
 import type {
-  Env,
   AuthContext,
+  AppVariables,
   ApiTokenRecord,
   UserTokenIndex,
 } from "../types";
 import type { ApiTokenCreated, ApiTokenSummary } from "../../shared/types";
 import tokensRoutes from "./tokens";
 import { hmacVerify } from "../lib/crypto";
+import { CloudflareKVStore } from "../lib/kv-cloudflare";
+import type { AppConfig } from "../lib/config";
 
 const ENCRYPTION_KEY = "test-encryption-key";
 const API_TOKEN_SECRET = "test-api-token-secret";
 
-type TestApp = {
-  Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
+const testConfig: AppConfig = {
+  githubAppClientId: "test-client-id",
+  githubAppClientSecret: "test-client-secret",
+  encryptionKey: ENCRYPTION_KEY,
+  apiTokenSecret: API_TOKEN_SECRET,
+  sentryDsn: "",
+  axiomApiToken: "",
+  axiomDataset: "",
 };
 
 function createApp(auth: AuthContext) {
-  const app = new Hono<TestApp>();
+  const app = new Hono<{ Variables: AppVariables }>();
   app.use("*", async (c, next) => {
     c.set("auth", auth);
     c.set("githubToken", auth.githubToken);
     c.set("githubUsername", auth.githubUsername);
+    c.set("sessions", new CloudflareKVStore(env.SESSIONS));
+    c.set("data", new CloudflareKVStore(env.CMS_DATA));
+    c.set("config", testConfig);
     return next();
   });
   app.route("/api/tokens", tokensRoutes);
@@ -54,17 +64,10 @@ function post(app: ReturnType<typeof createApp>, body: Record<string, unknown>) 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     },
-    env
   );
 }
 
 describe("tokens routes", () => {
-  beforeEach(async () => {
-    const e = env as unknown as Record<string, unknown>;
-    e.ENCRYPTION_KEY = ENCRYPTION_KEY;
-    e.API_TOKEN_SECRET = API_TOKEN_SECRET;
-  });
-
   // --- POST /api/tokens ---
 
   describe("POST /api/tokens", () => {
@@ -345,7 +348,7 @@ describe("tokens routes", () => {
         permissions: ["content:read"],
       });
 
-      const res = await app.request("/api/tokens", {}, env);
+      const res = await app.request("/api/tokens");
       expect(res.status).toBe(200);
       const body = await res.json<ApiTokenSummary[]>();
       expect(body.length).toBeGreaterThanOrEqual(1);
@@ -365,7 +368,7 @@ describe("tokens routes", () => {
     it("returns empty array when user has no tokens", async () => {
       const freshAuth = { ...sessionAuth, userId: "fresh-user-99999" };
       const app = createApp(freshAuth);
-      const res = await app.request("/api/tokens", {}, env);
+      const res = await app.request("/api/tokens");
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual([]);
     });
@@ -380,7 +383,7 @@ describe("tokens routes", () => {
 
       const otherAuth = { ...sessionAuth, userId: "other-user-77777" };
       const app2 = createApp(otherAuth);
-      const res = await app2.request("/api/tokens", {}, env);
+      const res = await app2.request("/api/tokens");
       expect(res.status).toBe(200);
       const body = await res.json<ApiTokenSummary[]>();
       expect(body.find((t) => t.name === "User1 token")).toBeUndefined();
@@ -398,7 +401,7 @@ describe("tokens routes", () => {
       // Manually delete the token record but leave the index pointing to it
       await env.CMS_DATA.delete(`api-token:${created.tokenId}`);
 
-      const res = await app.request("/api/tokens", {}, env);
+      const res = await app.request("/api/tokens");
       expect(res.status).toBe(200);
       const body = await res.json<ApiTokenSummary[]>();
       // Orphaned entry should be silently skipped
@@ -407,7 +410,7 @@ describe("tokens routes", () => {
 
     it("rejects API token auth for listing", async () => {
       const app = createApp(apiTokenAuth);
-      const res = await app.request("/api/tokens", {}, env);
+      const res = await app.request("/api/tokens");
       expect(res.status).toBe(403);
     });
   });
@@ -427,7 +430,6 @@ describe("tokens routes", () => {
       const deleteRes = await app.request(
         `/api/tokens/${created.tokenId}`,
         { method: "DELETE" },
-        env
       );
       expect(deleteRes.status).toBe(200);
 
@@ -457,10 +459,9 @@ describe("tokens routes", () => {
       await app.request(
         `/api/tokens/${created.tokenId}`,
         { method: "DELETE" },
-        env
       );
 
-      const listRes = await app.request("/api/tokens", {}, env);
+      const listRes = await app.request("/api/tokens");
       const body = await listRes.json<ApiTokenSummary[]>();
       expect(body.find((t) => t.tokenId === created.tokenId)).toBeUndefined();
     });
@@ -470,7 +471,6 @@ describe("tokens routes", () => {
       const res = await app.request(
         "/api/tokens/nonexistent-id",
         { method: "DELETE" },
-        env
       );
       expect(res.status).toBe(404);
     });
@@ -488,7 +488,6 @@ describe("tokens routes", () => {
             permissions: ["content:read"],
           }),
         },
-        env
       );
       const created = await createRes.json<ApiTokenCreated>();
 
@@ -497,7 +496,6 @@ describe("tokens routes", () => {
       const deleteRes = await app2.request(
         `/api/tokens/${created.tokenId}`,
         { method: "DELETE" },
-        env
       );
       expect(deleteRes.status).toBe(404);
 
@@ -518,14 +516,12 @@ describe("tokens routes", () => {
       const first = await app.request(
         `/api/tokens/${created.tokenId}`,
         { method: "DELETE" },
-        env
       );
       expect(first.status).toBe(200);
 
       const second = await app.request(
         `/api/tokens/${created.tokenId}`,
         { method: "DELETE" },
-        env
       );
       expect(second.status).toBe(404);
     });
@@ -535,7 +531,6 @@ describe("tokens routes", () => {
       const res = await app.request(
         "/api/tokens/any-id",
         { method: "DELETE" },
-        env
       );
       expect(res.status).toBe(403);
     });

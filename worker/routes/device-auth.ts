@@ -1,9 +1,12 @@
 import { Hono } from "hono";
-import type { Env, UserRecord } from "../types.js";
+import type { UserRecord } from "../types.js";
+import type { RequestLogger } from "../lib/logger.js";
+import type { KVStore } from "../lib/kv.js";
+import type { AppConfig } from "../lib/config.js";
 import { encrypt, generateRandomHex, hmacSign } from "../lib/crypto.js";
 import type { ApiTokenRecord, UserTokenIndex } from "../types.js";
 
-type DeviceAuthApp = { Bindings: Env };
+type DeviceAuthApp = { Variables: { logger: RequestLogger; requestId: string; data: KVStore; config: AppConfig } };
 
 const deviceAuth = new Hono<DeviceAuthApp>();
 
@@ -16,7 +19,7 @@ deviceAuth.post("/device", async (c) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      client_id: c.env.GITHUB_APP_CLIENT_ID,
+      client_id: c.var.config.githubAppClientId,
     }),
   });
 
@@ -58,7 +61,7 @@ deviceAuth.post("/device/token", async (c) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        client_id: c.env.GITHUB_APP_CLIENT_ID,
+        client_id: c.var.config.githubAppClientId,
         device_code: deviceCode,
         grant_type: "urn:ietf:params:oauth:grant-type:device_code",
       }),
@@ -119,20 +122,19 @@ deviceAuth.post("/device/token", async (c) => {
   // Encrypt and store tokens
   const encryptedGithubToken = await encrypt(
     data.access_token,
-    c.env.ENCRYPTION_KEY
+    c.var.config.encryptionKey
   );
 
   const encryptedRefreshToken = data.refresh_token
-    ? await encrypt(data.refresh_token, c.env.ENCRYPTION_KEY)
+    ? await encrypt(data.refresh_token, c.var.config.encryptionKey)
     : null;
 
   const tokenExpiresAt = data.expires_in
     ? new Date(Date.now() + data.expires_in * 1000).toISOString()
     : null;
 
-  const existing = await c.env.CMS_DATA.get<UserRecord>(
+  const existing = await c.var.data.getJSON<UserRecord>(
     `user:${userId}`,
-    "json"
   );
 
   const userRecord: UserRecord = {
@@ -145,11 +147,11 @@ deviceAuth.post("/device/token", async (c) => {
     updatedAt: new Date().toISOString(),
   };
 
-  await c.env.CMS_DATA.put(`user:${userId}`, JSON.stringify(userRecord));
+  await c.var.data.put(`user:${userId}`, JSON.stringify(userRecord));
 
   // Generate a CMS API token (all repos, safe permissions, 30-day expiry)
   const tokenId = generateRandomHex(20);
-  const hmac = await hmacSign(tokenId, c.env.API_TOKEN_SECRET);
+  const hmac = await hmacSign(tokenId, c.var.config.apiTokenSecret);
   const fullToken = `cms_${tokenId}.${hmac}`;
 
   const thirtyDays = new Date(
@@ -172,17 +174,19 @@ deviceAuth.post("/device/token", async (c) => {
     lastUsedAt: null,
   };
 
-  await c.env.CMS_DATA.put(
+  await c.var.data.put(
     `api-token:${tokenId}`,
     JSON.stringify(apiToken)
   );
 
   // Update user token index
   const indexKey = `user-tokens:${userId}`;
-  const index = await c.env.CMS_DATA.get<UserTokenIndex>(indexKey, "json");
+  const index = await c.var.data.getJSON<UserTokenIndex>(indexKey);
   const tokenIds = index?.tokenIds ?? [];
   tokenIds.push(tokenId);
-  await c.env.CMS_DATA.put(indexKey, JSON.stringify({ tokenIds }));
+  await c.var.data.put(indexKey, JSON.stringify({ tokenIds }));
+
+  c.var.logger?.audit("device.token_created", { userId, username: user.login });
 
   return c.json({
     status: "success",

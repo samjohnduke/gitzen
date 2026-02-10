@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Env, AuthContext } from "../types.js";
+import type { AppVariables } from "../types.js";
 import type { CmsConfig, ContentItem } from "../../shared/types.js";
 import { GitHubClient, GitHubApiError } from "../lib/github.js";
 import { parseFrontmatter, serializeFrontmatter } from "../../shared/frontmatter.js";
@@ -8,8 +8,7 @@ import { branchName } from "../../shared/branch.js";
 import { GITHUB_APP_INSTALL_URL } from "../../shared/constants.js";
 
 type ContentApp = {
-  Bindings: Env;
-  Variables: { auth: AuthContext; githubToken: string; githubUsername: string };
+  Variables: AppVariables;
 };
 
 const content = new Hono<ContentApp>();
@@ -35,7 +34,7 @@ content.get(
       return c.json({ error: "Invalid collection name" }, 400);
     }
 
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const { content: configRaw } = await github.getFile(repo, "cms.config.json");
     const config = JSON.parse(configRaw) as CmsConfig;
@@ -92,7 +91,7 @@ content.get(
       return c.json({ error: "Invalid slug" }, 400);
     }
 
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const { content: configRaw } = await github.getFile(repo, "cms.config.json");
     const config = JSON.parse(configRaw) as CmsConfig;
@@ -189,7 +188,7 @@ content.put(
       return c.json({ error: "Invalid slug" }, 400);
     }
 
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const { content: configRaw } = await github.getFile(repo, "cms.config.json");
     const config = JSON.parse(configRaw) as CmsConfig;
@@ -249,6 +248,7 @@ content.put(
           fileSha,
           branch
         );
+        c.var.logger?.audit("content.saved", { repo, collection, slug, mode: "branch", branch });
         return c.json({ sha: result.sha, path: filePath, branch });
       } catch (e) {
         if (e instanceof GitHubApiError && e.status === 403) {
@@ -280,6 +280,7 @@ content.put(
         message,
         reqBody.sha
       );
+      c.var.logger?.audit("content.saved", { repo, collection, slug, mode: "direct" });
       return c.json({ sha: result.sha, path: filePath });
     } catch (e) {
       if (e instanceof GitHubApiError && e.status === 403) {
@@ -316,7 +317,7 @@ content.delete(
       return c.json({ error: "Invalid slug" }, 400);
     }
 
-    const github = new GitHubClient(c.var.auth.githubToken);
+    const github = new GitHubClient(c.var.auth.githubToken, c.var.logger);
 
     const { content: configRaw } = await github.getFile(repo, "cms.config.json");
     const config = JSON.parse(configRaw) as CmsConfig;
@@ -340,6 +341,7 @@ content.delete(
           `Delete ${collection}/${slug}`,
           sha
         );
+        c.var.logger?.audit("content.deleted", { repo, collection, slug });
         return c.json({ ok: true });
       } catch (e) {
         if (e instanceof GitHubApiError && e.status === 404) continue;
