@@ -78,7 +78,7 @@ auth.get("/callback", async (c) => {
   const userRes = await fetch("https://api.github.com/user", {
     headers: {
       Authorization: `Bearer ${tokenData.access_token}`,
-      "User-Agent": "samduke-cms",
+      "User-Agent": "gitzen",
     },
   });
 

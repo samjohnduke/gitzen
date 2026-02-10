@@ -1,4 +1,4 @@
-# samduke-cms
+# Gitzen
 
 Web-based markdown editor for static sites. Edits commit directly to GitHub repos — your SSG reads files from disk as always.
 

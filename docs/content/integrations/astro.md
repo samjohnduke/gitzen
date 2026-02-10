@@ -1,11 +1,11 @@
 ---
 title: "Astro"
-description: "Integrate samduke-cms with your Astro site to fetch and display content from your CMS"
+description: "Integrate gitzen with your Astro site to fetch and display content from your CMS"
 ---
 
 # Astro Integration
 
-This guide shows you how to integrate samduke-cms with an Astro site. The CMS provides a REST API that you can use to fetch content at build time for static site generation.
+This guide shows you how to integrate gitzen with an Astro site. The CMS provides a REST API that you can use to fetch content at build time for static site generation.
 
 ## Environment Variables
 

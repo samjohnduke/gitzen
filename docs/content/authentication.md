@@ -1,6 +1,6 @@
 ---
 title: Authentication
-description: How authentication works in samduke-cms — browser sessions, API tokens, and device code flow.
+description: How authentication works in gitzen — browser sessions, API tokens, and device code flow.
 order: 3
 ---
 

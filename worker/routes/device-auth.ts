@@ -108,7 +108,7 @@ deviceAuth.post("/device/token", async (c) => {
   const userRes = await fetch("https://api.github.com/user", {
     headers: {
       Authorization: `Bearer ${data.access_token}`,
-      "User-Agent": "samduke-cms",
+      "User-Agent": "gitzen",
     },
   });
 

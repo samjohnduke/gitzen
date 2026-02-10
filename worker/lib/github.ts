@@ -46,7 +46,7 @@ export class GitHubClient {
       headers: {
         Authorization: `Bearer ${this.token}`,
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "samduke-cms",
+        "User-Agent": "gitzen",
         ...((options.headers as Record<string, string>) ?? {}),
       },
     });

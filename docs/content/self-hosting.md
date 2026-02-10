@@ -36,8 +36,8 @@ Your gitzen instance authenticates users via a GitHub App that you own.
 ## 2. Clone and build
 
 ```bash
-git clone https://github.com/samducker/samduke-cms.git
-cd samduke-cms
+git clone https://github.com/samjohnduke/gitzen.git
+cd gitzen
 npm install --legacy-peer-deps
 ```
 

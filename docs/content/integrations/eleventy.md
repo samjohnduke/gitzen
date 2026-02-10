@@ -1,11 +1,11 @@
 ---
 title: "Eleventy"
-description: "Integrate samduke-cms with Eleventy (11ty) to fetch content at build time"
+description: "Integrate gitzen with Eleventy (11ty) to fetch content at build time"
 ---
 
 # Eleventy Integration
 
-This guide shows how to integrate samduke-cms with [Eleventy (11ty)](https://www.11ty.dev/) to fetch content from your CMS at build time.
+This guide shows how to integrate gitzen with [Eleventy (11ty)](https://www.11ty.dev/) to fetch content from your CMS at build time.
 
 ## Setup
 

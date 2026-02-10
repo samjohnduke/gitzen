@@ -58,7 +58,7 @@ export const SiteNav: FC<{ nonce?: string }> = ({ nonce }) => {
         </a>
         <ul class="nav-links">
           <li><a href="/docs/getting-started">Docs</a></li>
-          <li><a href="https://github.com/samducker/samduke-cms">GitHub</a></li>
+          <li><a href="https://github.com/samjohnduke/gitzen">GitHub</a></li>
           <li>
             <button
               class="theme-toggle"

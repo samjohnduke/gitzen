@@ -1,11 +1,11 @@
 ---
 title: "Next.js"
-description: "Integrate samduke-cms with Next.js App Router for static and dynamic content delivery"
+description: "Integrate gitzen with Next.js App Router for static and dynamic content delivery"
 ---
 
 # Next.js Integration
 
-This guide shows how to integrate samduke-cms with a Next.js application using the App Router. The CMS provides a REST API that works seamlessly with Next.js Server Components, static generation, and ISR.
+This guide shows how to integrate gitzen with a Next.js application using the App Router. The CMS provides a REST API that works seamlessly with Next.js Server Components, static generation, and ISR.
 
 ## Environment Variables
 

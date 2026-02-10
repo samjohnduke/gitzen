@@ -1,11 +1,11 @@
 ---
 title: "Jekyll"
-description: "Integrate samduke-cms with Jekyll to fetch content at build time"
+description: "Integrate gitzen with Jekyll to fetch content at build time"
 ---
 
 # Jekyll Integration
 
-Jekyll can fetch content from samduke-cms at build time using a simple Node.js script. This approach allows you to manage content through the CMS while building a static Jekyll site.
+Jekyll can fetch content from gitzen at build time using a simple Node.js script. This approach allows you to manage content through the CMS while building a static Jekyll site.
 
 ## Fetch Script
 

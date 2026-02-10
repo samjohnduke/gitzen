@@ -1,11 +1,11 @@
 ---
 title: "Hugo"
-description: "Integrate samduke-cms with Hugo by fetching content at build time"
+description: "Integrate gitzen with Hugo by fetching content at build time"
 ---
 
 # Hugo Integration
 
-Hugo is a fast static site generator that works with markdown files. You can integrate samduke-cms by fetching content from the CMS API at build time and writing it to Hugo's content directory.
+Hugo is a fast static site generator that works with markdown files. You can integrate gitzen by fetching content from the CMS API at build time and writing it to Hugo's content directory.
 
 ## Setup
 
