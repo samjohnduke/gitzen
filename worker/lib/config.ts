@@ -1,3 +1,5 @@
+import type { Env } from "../types.js";
+
 export interface AppConfig {
   githubAppClientId: string;
   githubAppClientSecret: string;
@@ -8,14 +10,14 @@ export interface AppConfig {
   axiomDataset: string;
 }
 
-export function configFromEnv(env: Record<string, unknown>): AppConfig {
+export function configFromEnv(env: Env): AppConfig {
   return {
-    githubAppClientId: env.GITHUB_APP_CLIENT_ID as string,
-    githubAppClientSecret: env.GITHUB_APP_CLIENT_SECRET as string,
-    encryptionKey: env.ENCRYPTION_KEY as string,
-    apiTokenSecret: env.API_TOKEN_SECRET as string,
-    sentryDsn: (env.SENTRY_DSN as string) ?? "",
-    axiomApiToken: (env.AXIOM_API_TOKEN as string) ?? "",
-    axiomDataset: (env.AXIOM_DATASET as string) ?? "",
+    githubAppClientId: env.GITHUB_APP_CLIENT_ID,
+    githubAppClientSecret: env.GITHUB_APP_CLIENT_SECRET,
+    encryptionKey: env.ENCRYPTION_KEY,
+    apiTokenSecret: env.API_TOKEN_SECRET,
+    sentryDsn: env.SENTRY_DSN ?? "",
+    axiomApiToken: env.AXIOM_API_TOKEN ?? "",
+    axiomDataset: env.AXIOM_DATASET ?? "",
   };
 }
