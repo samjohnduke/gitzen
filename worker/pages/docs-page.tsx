@@ -1,5 +1,6 @@
 /** @jsxImportSource hono/jsx */
 import type { FC } from "hono/jsx";
+import { raw } from "hono/html";
 import { SiteNav } from "./layout.js";
 import type { TocEntry, NavItem } from "../../docs/manifest.js";
 
@@ -114,7 +115,7 @@ export const DocsPage: FC<DocsPageProps> = ({
         class="docs-overlay"
         id="docs-overlay"
       />
-      <script nonce={nonce}>{`document.querySelector('.docs-mobile-toggle').addEventListener('click',function(){document.getElementById('docs-sidebar').classList.toggle('open');document.getElementById('docs-overlay').classList.toggle('open')});document.getElementById('docs-overlay').addEventListener('click',function(){document.getElementById('docs-sidebar').classList.remove('open');this.classList.remove('open')})`}</script>
+      <script nonce={nonce}>{raw(`document.querySelector('.docs-mobile-toggle').addEventListener('click',function(){document.getElementById('docs-sidebar').classList.toggle('open');document.getElementById('docs-overlay').classList.toggle('open')});document.getElementById('docs-overlay').addEventListener('click',function(){document.getElementById('docs-sidebar').classList.remove('open');this.classList.remove('open')})`)}</script>
     </>
   );
 };

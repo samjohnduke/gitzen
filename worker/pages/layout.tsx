@@ -1,5 +1,6 @@
 /** @jsxImportSource hono/jsx */
 import type { FC, PropsWithChildren } from "hono/jsx";
+import { raw } from "hono/html";
 import { siteStyles } from "./styles.js";
 
 interface PageLayoutProps {
@@ -17,20 +18,23 @@ export const PageLayout: FC<PropsWithChildren<PageLayoutProps>> = ({
   // Static string literal — no user input, safe for inline script
   const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}})()`;
   return (
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{title}</title>
-        {description && <meta name="description" content={description} />}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-        <style>{siteStyles}</style>
-        <script nonce={nonce}>{themeInit}</script>
-      </head>
-      <body>{children}</body>
-    </html>
+    <>
+      {raw('<!DOCTYPE html>')}
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{title}</title>
+          {description && <meta name="description" content={description} />}
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+          <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+          <style>{raw(siteStyles)}</style>
+          <script nonce={nonce}>{raw(themeInit)}</script>
+        </head>
+        <body>{children}</body>
+      </html>
+    </>
   );
 };
 
@@ -77,7 +81,7 @@ export const SiteNav: FC<{ nonce?: string }> = ({ nonce }) => {
           <li><a href="/app" class="nav-cta">Open App</a></li>
         </ul>
       </div>
-      <script nonce={nonce}>{themeToggleScript}</script>
+      <script nonce={nonce}>{raw(themeToggleScript)}</script>
     </nav>
   );
 };
