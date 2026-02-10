@@ -26,6 +26,7 @@ export interface AppVariables {
   githubUsername: string;
   logger: RequestLogger;
   requestId: string;
+  cspNonce: string;
   sessions: KVStore;
   data: KVStore;
   config: AppConfig;

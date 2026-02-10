@@ -30,12 +30,14 @@ const site = new Hono();
 
 // Landing page
 site.get("/", (c) => {
+  const nonce = c.var.cspNonce;
   const page = (
     <PageLayout
       title="gitzen — Edit your static site from anywhere"
       description="A web-based markdown editor for static sites. Edits commit directly to your GitHub repo. Works with any static site generator."
+      nonce={nonce}
     >
-      <LandingPage />
+      <LandingPage nonce={nonce} />
     </PageLayout>
   );
   return c.html(page);
@@ -51,6 +53,7 @@ site.get("/api/openapi.yaml", (c) => {
 
 // Standalone interactive API reference (Scalar — renders its own full page)
 site.get("/reference", (c) => {
+  const nonce = c.var.cspNonce;
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,8 +63,8 @@ site.get("/reference", (c) => {
   <meta name="description" content="Interactive REST API documentation for gitzen" />
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1/dist/browser/standalone.min.js" integrity="sha384-Yn5fVmbJmOeh0pEiIB8RmshFf7QtAg8Ssh6LLKNxmNh+X8RIPblz+yLjYBGgXxO1" crossorigin="anonymous"></script>
-  <script>
+  <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1/dist/browser/standalone.min.js" integrity="sha384-Yn5fVmbJmOeh0pEiIB8RmshFf7QtAg8Ssh6LLKNxmNh+X8RIPblz+yLjYBGgXxO1" crossorigin="anonymous"></script>
+  <script nonce="${nonce}">
     Scalar.createApiReference(document.body, {
       url: '/api/openapi.yaml',
       theme: 'default',
@@ -91,10 +94,12 @@ site.get("/docs/:slug{.+}", (c) => {
   const prev = idx > 0 ? flatSlugs[idx - 1] : null;
   const next = idx < flatSlugs.length - 1 ? flatSlugs[idx + 1] : null;
 
+  const nonce = c.var.cspNonce;
   const page = (
     <PageLayout
       title={`${doc.meta.title} — gitzen`}
       description={doc.meta.description}
+      nonce={nonce}
     >
       <DocsPage
         html={doc.html}
@@ -104,6 +109,7 @@ site.get("/docs/:slug{.+}", (c) => {
         currentSlug={slug}
         prev={prev}
         next={next}
+        nonce={nonce}
       />
     </PageLayout>
   );

@@ -11,6 +11,7 @@ interface DocsPageProps {
   currentSlug: string;
   prev?: { title: string; slug: string } | null;
   next?: { title: string; slug: string } | null;
+  nonce?: string;
 }
 
 export const DocsPage: FC<DocsPageProps> = ({
@@ -21,10 +22,11 @@ export const DocsPage: FC<DocsPageProps> = ({
   currentSlug,
   prev,
   next,
+  nonce,
 }) => {
   return (
     <>
-      <SiteNav />
+      <SiteNav nonce={nonce} />
       <div class="docs-layout">
         {/* Sidebar */}
         <aside class="docs-sidebar" id="docs-sidebar">
@@ -104,7 +106,6 @@ export const DocsPage: FC<DocsPageProps> = ({
       {/* Mobile sidebar toggle */}
       <button
         class="docs-mobile-toggle"
-        onclick="document.getElementById('docs-sidebar').classList.toggle('open');document.getElementById('docs-overlay').classList.toggle('open')"
         aria-label="Toggle navigation"
       >
         &#9776;
@@ -112,8 +113,8 @@ export const DocsPage: FC<DocsPageProps> = ({
       <div
         class="docs-overlay"
         id="docs-overlay"
-        onclick="document.getElementById('docs-sidebar').classList.remove('open');this.classList.remove('open')"
       />
+      <script nonce={nonce}>{`document.querySelector('.docs-mobile-toggle').addEventListener('click',function(){document.getElementById('docs-sidebar').classList.toggle('open');document.getElementById('docs-overlay').classList.toggle('open')});document.getElementById('docs-overlay').addEventListener('click',function(){document.getElementById('docs-sidebar').classList.remove('open');this.classList.remove('open')})`}</script>
     </>
   );
 };

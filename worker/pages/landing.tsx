@@ -2,10 +2,10 @@
 import type { FC } from "hono/jsx";
 import { SiteNav } from "./layout.js";
 
-export const LandingPage: FC = () => {
+export const LandingPage: FC<{ nonce?: string }> = ({ nonce }) => {
   return (
     <>
-      <SiteNav />
+      <SiteNav nonce={nonce} />
 
       {/* Hero */}
       <section class="hero">
