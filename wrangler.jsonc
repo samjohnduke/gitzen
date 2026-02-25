@@ -9,6 +9,21 @@
     "not_found_handling": "none",
     "html_handling": "none"
   },
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
   "kv_namespaces": [
     { "binding": "SESSIONS", "id": "56d4300673e14bb7b4a7f116df9ad22a" },
     { "binding": "CMS_DATA", "id": "3aa29c73af534dde9b07f02a83166502" }
