@@ -37,14 +37,17 @@ describe("AES-256-GCM encryption", () => {
   it("decryption fails with tampered ciphertext", async () => {
     const encrypted = await encrypt("secret-data", TEST_SECRET);
     const parts = encrypted.split(".");
-    const tampered = parts[0] + "." + "A" + parts[1].slice(1);
+    // Flip every character to guarantee actual byte changes
+    const flipped = parts[1].split("").map(c => c === "A" ? "B" : "A").join("");
+    const tampered = parts[0] + "." + flipped;
     await expect(decrypt(tampered, TEST_SECRET)).rejects.toThrow();
   });
 
   it("decryption fails with tampered IV", async () => {
     const encrypted = await encrypt("secret-data", TEST_SECRET);
     const parts = encrypted.split(".");
-    const tampered = "A" + parts[0].slice(1) + "." + parts[1];
+    const flipped = parts[0].split("").map(c => c === "A" ? "B" : "A").join("");
+    const tampered = flipped + "." + parts[1];
     await expect(decrypt(tampered, TEST_SECRET)).rejects.toThrow();
   });
 
