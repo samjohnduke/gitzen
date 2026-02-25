@@ -5,6 +5,9 @@ import path from "path";
 import markdownPlugin from "./plugins/vite-plugin-markdown.js";
 
 export default defineConfig({
+  build: {
+    sourcemap: "hidden",
+  },
   plugins: [markdownPlugin(), react(), cloudflare()],
   resolve: {
     alias: {
