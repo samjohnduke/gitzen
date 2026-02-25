@@ -78,6 +78,11 @@ app.onError((err, c) => {
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
+// Debug: test Sentry error reporting
+app.get("/api/debug/sentry", (c) => {
+  throw new Error("Sentry worker test error");
+});
+
 // Auth status (unauthenticated)
 app.get("/api/auth/me", async (c) => {
   const cookies = c.req.header("Cookie") ?? "";
