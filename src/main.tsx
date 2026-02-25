@@ -15,8 +15,6 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     replaysOnErrorSampleRate: 1.0,
     replaysSessionSampleRate: 0,
   });
-  // Expose for console debugging: window.__SENTRY_INITIALIZED__
-  (window as any).__SENTRY_INITIALIZED__ = true;
 }
 
 createRoot(document.getElementById("root")!).render(
