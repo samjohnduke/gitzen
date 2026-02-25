@@ -52,7 +52,7 @@ app.use("*", async (c, next) => {
   if (!isLocal) {
     c.header(
       "Content-Security-Policy",
-      `default-src 'self'; script-src 'self' 'nonce-${nonce}' https://static.cloudflareinsights.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://avatars.githubusercontent.com data:; connect-src 'self' https://*.ingest.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`
+      `default-src 'self'; script-src 'self' 'nonce-${nonce}' https://static.cloudflareinsights.com https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://avatars.githubusercontent.com data:; connect-src 'self' https://*.ingest.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`
     );
     c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
