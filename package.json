@@ -28,7 +28,7 @@
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
     "dompurify": "^3.3.1",
-    "hono": "^4.7.4",
+    "hono": "^4.11.10",
     "js-yaml": "^4.1.0",
     "marked": "^17.0.1",
     "react": "^19.0.0",
