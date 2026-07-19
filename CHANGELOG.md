@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+### Changed
+- Enable logpush for the Worker
+
 ## 2026-02-26
 
 ### Added
